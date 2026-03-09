@@ -687,6 +687,21 @@ header {
 }
 .btn-primary:hover { opacity:0.85; }
 
+.sound-pill {
+  padding:4px 11px;
+  border-radius:20px;
+  border:1px solid var(--border);
+  background:transparent;
+  font-family:'Geist Mono', monospace;
+  font-size:11px;
+  color:var(--text3);
+  cursor:pointer;
+  transition:all 0.12s;
+  letter-spacing:0.02em;
+}
+.sound-pill:hover { border-color:var(--border2); color:var(--text2); }
+.sound-pill.active { background:var(--amber-dim); border-color:var(--amber); color:var(--amber); }
+
 /* ── PULSE ANIM ── */
 @keyframes pulse-ring {
   0% { box-shadow:0 0 0 0 var(--accent-glow); }
@@ -822,6 +837,10 @@ header {
               <div class="num-btn" onclick="adjustSetting('longBreak',5)">+</div>
             </div>
           </div>
+          <div style="margin-top:10px;">
+            <div class="card-label" style="margin-bottom:7px;">Zvuk upozornenia</div>
+            <div id="sound-picker" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+          </div>
         </div>
 
         <!-- Today stats -->
@@ -859,24 +878,38 @@ header {
   </div>
 </div>
 
+<!-- SKIP MODAL -->
+<div class="modal-overlay" id="skip-modal">
+  <div class="modal" style="max-width:360px;text-align:center;">
+    <div style="font-size:36px;margin-bottom:12px;">⏱️</div>
+    <h2 style="margin-bottom:8px;">Uložiť čas?</h2>
+    <p>Pracoval si <strong id="skip-elapsed">0</strong> minút. Chceš uložiť tento čiastočný čas do histórie?</p>
+    <div class="modal-btns" style="justify-content:center;margin-top:4px;">
+      <button class="btn-ghost" onclick="skipDiscard()">Zahodiť</button>
+      <button class="btn-primary" onclick="skipSave()">Uložiť</button>
+    </div>
+  </div>
+</div>
+
 <!-- GCAL MODAL -->
 <div class="modal-overlay" id="gcal-modal">
   <div class="modal">
     <h2>Google Kalendár</h2>
-    <p>Zadaj svoj Google Calendar API kľúč a ID kalendára. Po dokončení každého Pomodoro sa automaticky pridá udalosť do tvojho kalendára.</p>
+    <p>Zadaj URL tvojho Google Apps Script a ID kalendára. Po dokončení každého Pomodoro sa automaticky pridá udalosť.</p>
 
-    <div class="card-label" style="margin-bottom:6px;">API kľúč</div>
-    <input class="modal-input" id="gcal-apikey" placeholder="AIza..." type="password">
+    <div class="card-label" style="margin-bottom:6px;">Apps Script URL</div>
+    <input class="modal-input" id="gcal-scripturl" placeholder="https://script.google.com/macros/s/.../exec" type="text">
 
     <div class="card-label" style="margin-bottom:6px;">Calendar ID</div>
     <input class="modal-input" id="gcal-calid" placeholder="tvoj.email@gmail.com alebo ID kalendára">
 
     <div class="modal-note">
-      💡 Ako získať API kľúč:<br>
-      1. Choď na console.cloud.google.com<br>
-      2. Vytvor projekt → Aktivuj "Google Calendar API"<br>
-      3. Vytvor API kľúč v "Credentials"<br>
-      4. Nezabudni povoliť doménu pidobleyu.github.io
+      💡 Ako získať Apps Script URL:<br>
+      1. Choď na script.google.com → New project<br>
+      2. Vlož kód funkcie doPost<br>
+      3. Deploy → New deployment → Web app<br>
+      4. Execute as: Me · Who has access: Anyone<br>
+      5. Skopíruj deployment URL sem
     </div>
 
     <div class="modal-btns">
@@ -931,6 +964,8 @@ function init() {
   updateTodayStats();
   updateGCalStatus();
   renderQuickTags();
+  renderSoundPicker();
+  requestNotificationPermission();
   document.getElementById('activity-input').addEventListener('input', e => {
     currentActivity = e.target.value.trim();
   });
@@ -979,7 +1014,35 @@ function resetTimer() {
 }
 
 function skipSession() {
+  if (!sessionStart || mode !== 'work') {
+    pauseTimer();
+    finishSession(false);
+    return;
+  }
+  // How many minutes have elapsed?
+  const elapsed = Math.floor((settings[mode] * 60 - secondsLeft) / 60);
+  if (elapsed < 1) {
+    pauseTimer();
+    finishSession(false);
+    return;
+  }
   pauseTimer();
+  showSkipDialog(elapsed);
+}
+
+function showSkipDialog(elapsed) {
+  const overlay = document.getElementById('skip-modal');
+  document.getElementById('skip-elapsed').textContent = elapsed;
+  overlay.classList.add('open');
+}
+
+function skipSave() {
+  document.getElementById('skip-modal').classList.remove('open');
+  finishSession(true, true); // partial=true
+}
+
+function skipDiscard() {
+  document.getElementById('skip-modal').classList.remove('open');
   finishSession(false);
 }
 
@@ -989,7 +1052,7 @@ function tick() {
   const total = settings[mode] * 60;
   updateRing(secondsLeft / total);
   if (secondsLeft <= 0) {
-    finishSession(true);
+    finishSession(true, false);
   }
 }
 
@@ -1009,21 +1072,24 @@ function updateRing(fraction) {
   else ring.classList.add('break');
 }
 
-function finishSession(completed) {
+function finishSession(completed, partial = false) {
   pauseTimer();
 
   if (mode === 'work' && completed) {
     sessionCount++;
     const activity = currentActivity || 'Bez názvu';
-    const duration = settings.work;
     const end = new Date();
-    const start = sessionStart || new Date(end - duration * 60000);
+    const start = sessionStart || new Date(end - settings.work * 60000);
+    const actualDuration = partial
+      ? Math.max(1, Math.floor((end - start) / 60000))
+      : settings.work;
 
-    // Save session
     const session = {
       id: Date.now(),
       activity,
-      duration,
+      duration: actualDuration,
+      planned: settings.work,
+      partial,
       start: start.toISOString(),
       end: end.toISOString(),
       date: toDateStr(end),
@@ -1032,29 +1098,33 @@ function finishSession(completed) {
     sessions.unshift(session);
     localStorage.setItem('pm_sessions', JSON.stringify(sessions));
 
-    // Try Google Calendar
     if (gcalConfig) addToGCal(session);
 
-    // Show finish screen
-    showFinishFlash('work', activity, duration);
+    showFinishFlash('work', activity, actualDuration, partial);
+    sendNotification(
+      partial ? `⏱ Uložený čiastočný čas` : `🍅 Pomodoro dokončené!`,
+      `${activity} — ${actualDuration} min`
+    );
     renderSessionDots();
     updateTodayStats();
   } else if (mode !== 'work' && completed) {
-    showFinishFlash('break', '', 0);
+    showFinishFlash('break', '', 0, false);
+    sendNotification('☀️ Pauza skončila!', 'Pripravený na ďalšie Pomodoro?');
   }
 
+  secondsLeft = settings[mode] * 60;
   sessionStart = null;
 }
 
-function showFinishFlash(type, activity, duration) {
+function showFinishFlash(type, activity, duration, partial) {
   const ff = document.getElementById('finish-flash');
   const nextBtn = document.getElementById('finish-next-btn');
 
   if (type === 'work') {
-    document.getElementById('finish-emoji').textContent = '🍅';
-    document.getElementById('finish-title').textContent = 'Pomodoro dokončené!';
+    document.getElementById('finish-emoji').textContent = partial ? '⏱️' : '🍅';
+    document.getElementById('finish-title').textContent = partial ? 'Čas uložený!' : 'Pomodoro dokončené!';
     document.getElementById('finish-sub').textContent =
-      `"${activity}" — ${duration} minút sústredenia.`;
+      `"${activity}" — ${duration} min${partial ? ' (čiastočné)' : ' sústredenia'}.`;
     const isLong = sessionCount % 4 === 0;
     nextBtn.textContent = isLong ? 'Dlhá pauza' : 'Krátka pauza';
     nextBtn.dataset.next = isLong ? 'longBreak' : 'break';
@@ -1067,7 +1137,7 @@ function showFinishFlash(type, activity, duration) {
   }
 
   ff.classList.add('show');
-  playBuzzer();
+  playSound();
 }
 
 function dismissFinish() {
@@ -1100,22 +1170,71 @@ function setMode(m) {
   updateRing(1);
 }
 
-// ── BUZZER (Web Audio) ──
-function playBuzzer() {
+// ── SOUND ──
+const SOUNDS = {
+  bells: (ctx, t) => {
+    [523, 659, 784, 1047].forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t + i*0.18);
+      g.gain.linearRampToValueAtTime(0.3, t + i*0.18 + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i*0.18 + 0.5);
+      o.start(t + i*0.18); o.stop(t + i*0.18 + 0.6);
+    });
+  },
+  beep: (ctx, t) => {
+    [880, 660, 880].forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0.35, t + i*0.15);
+      g.gain.exponentialRampToValueAtTime(0.001, t + i*0.15 + 0.12);
+      o.start(t + i*0.15); o.stop(t + i*0.15 + 0.15);
+    });
+  },
+  chime: (ctx, t) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(1318, t);
+    o.frequency.exponentialRampToValueAtTime(659, t + 0.8);
+    g.gain.setValueAtTime(0.4, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+    o.start(t); o.stop(t + 1.2);
+  }
+};
+
+let selectedSound = localStorage.getItem('pm_sound') || 'bells';
+
+function playSound() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
-    gain.gain.setValueAtTime(0.4, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.6);
+    const fn = SOUNDS[selectedSound] || SOUNDS.bells;
+    fn(ctx, ctx.currentTime);
   } catch(e) {}
+}
+
+function setSoundPref(s) {
+  selectedSound = s;
+  localStorage.setItem('pm_sound', s);
+  document.querySelectorAll('.sound-pill').forEach(p => p.classList.toggle('active', p.dataset.sound === s));
+  playSound();
+}
+
+// ── NOTIFICATIONS ──
+function requestNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().then(p => {
+      if (p === 'granted') showToast('Notifikácie povolené ✓', 'success');
+    });
+  }
+}
+
+function sendNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try { new Notification(title, { body, icon: 'https://em-content.zobj.net/source/apple/354/tomato_1f345.png' }); } catch(e) {}
 }
 
 // ── SESSION DOTS ──
@@ -1181,7 +1300,21 @@ function updateSettingsUI() {
   document.getElementById('longbreak-val').textContent = settings.longBreak;
 }
 
-// ── QUICK TAGS ──
+// ── SOUND PICKER ──
+function renderSoundPicker() {
+  const container = document.getElementById('sound-picker');
+  if (!container) return;
+  const sounds = [{ id:'bells', label:'🔔 Zvony' }, { id:'beep', label:'📡 Pípnutie' }, { id:'chime', label:'🎵 Chime' }];
+  container.innerHTML = '';
+  sounds.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'sound-pill' + (selectedSound === s.id ? ' active' : '');
+    btn.dataset.sound = s.id;
+    btn.textContent = s.label;
+    btn.onclick = () => setSoundPref(s.id);
+    container.appendChild(btn);
+  });
+}
 function renderQuickTags() {
   const container = document.getElementById('quick-tags');
   container.innerHTML = '';
@@ -1218,7 +1351,8 @@ function renderHistory() {
         <div class="hi-meta">${formatDate(start)} · ${formatTime(start)}</div>
       </div>
       <div class="hi-right">
-        <div class="hi-duration">${s.duration}min</div>
+        <div class="hi-duration">${s.duration}min${s.partial ? `<span style="color:var(--text3);font-size:10px;margin-left:3px;">/${s.planned||'?'}</span>` : ''}</div>
+        ${s.partial ? '<span class="hi-gcal" style="background:var(--amber-dim);color:var(--amber);">čiastočné</span>' : ''}
         ${s.gcal ? '<span class="hi-gcal">gcal ✓</span>' : ''}
       </div>
     `;
@@ -1265,10 +1399,10 @@ function clearHistory() {
   }
 }
 
-// ── GOOGLE CALENDAR ──
+// ── GOOGLE CALENDAR (via Apps Script) ──
 function openGCalModal() {
   if (gcalConfig) {
-    document.getElementById('gcal-apikey').value = gcalConfig.apiKey || '';
+    document.getElementById('gcal-scripturl').value = gcalConfig.scriptUrl || '';
     document.getElementById('gcal-calid').value = gcalConfig.calId || '';
   }
   document.getElementById('gcal-modal').classList.add('open');
@@ -1279,10 +1413,11 @@ function closeGCalModal() {
 }
 
 function saveGCal() {
-  const apiKey = document.getElementById('gcal-apikey').value.trim();
+  const scriptUrl = document.getElementById('gcal-scripturl').value.trim();
   const calId = document.getElementById('gcal-calid').value.trim();
-  if (!apiKey || !calId) { showToast('Vyplň oba polia', 'error'); return; }
-  gcalConfig = { apiKey, calId };
+  if (!scriptUrl || !calId) { showToast('Vyplň oba polia', 'error'); return; }
+  if (!scriptUrl.includes('script.google.com')) { showToast('URL musí byť z script.google.com', 'error'); return; }
+  gcalConfig = { scriptUrl, calId };
   localStorage.setItem('pm_gcal', JSON.stringify(gcalConfig));
   updateGCalStatus();
   closeGCalModal();
@@ -1306,32 +1441,31 @@ function updateGCalStatus() {
 async function addToGCal(session) {
   if (!gcalConfig) return;
   try {
-    const event = {
-      summary: `🍅 ${session.activity}`,
-      description: `Pomodoro session — ${session.duration} minút`,
-      start: { dateTime: session.start, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
-      end: { dateTime: session.end, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
-      colorId: '11'
+    const payload = {
+      calendarId: gcalConfig.calId,
+      title: `🍅 ${session.activity}${session.partial ? ' (čiastočné)' : ''}`,
+      description: `Pomodoro — ${session.duration} min${session.partial ? ` z ${session.planned} min` : ''}`,
+      start: session.start,
+      end: session.end
     };
 
-    const res = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(gcalConfig.calId)}/events?key=${gcalConfig.apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(event)
-      }
-    );
+    // Apps Script vyžaduje no-cors alebo redirect — používame Image trick pre fire-and-forget
+    // Ale najprv skúsime fetch s mode no-cors
+    const url = gcalConfig.scriptUrl + '?' + new URLSearchParams({
+      calendarId: payload.calendarId,
+      title: payload.title,
+      description: payload.description,
+      start: payload.start,
+      end: payload.end
+    });
 
-    if (res.ok) {
-      session.gcal = true;
-      localStorage.setItem('pm_sessions', JSON.stringify(sessions));
-      showToast('Pridané do Google Kalendára ✓', 'success');
-    } else {
-      const err = await res.json();
-      console.error('GCal error:', err);
-      showToast('Chyba Google Kalendára', 'error');
-    }
+    // no-cors fetch — odpoveď nedostaneme ale request sa odošle
+    await fetch(url, { method: 'GET', mode: 'no-cors' });
+
+    // Optimisticky označíme ako odoslaté
+    session.gcal = true;
+    localStorage.setItem('pm_sessions', JSON.stringify(sessions));
+    showToast('Odoslané do Google Kalendára ✓', 'success');
   } catch(e) {
     console.error(e);
     showToast('Chyba pri synchronizácii', 'error');
