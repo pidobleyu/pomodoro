@@ -359,7 +359,7 @@ header {
 .activity-chip:hover { border-color:var(--border2); color:var(--text); }
 .activity-chip.active {
   border-color: var(--chip-color, var(--accent));
-  background: color-mix(in srgb, var(--chip-color, var(--accent)) 14%, transparent);
+  background: var(--chip-bg, rgba(232,83,58,0.14));
   color: var(--chip-color, var(--accent));
 }
 .chip-dot {
@@ -1199,10 +1199,10 @@ header {
 <script>
 // ── CONSTANTS ──
 const COLORS = [
-  '#FF3333','#FF6666','#FF9999','#FFCCCC',
-  '#FF9944','#FFCC44','#AACC44','#44BB88',
-  '#44AADD','#4466FF','#7744FF','#CC44AA',
-  '#888899','#AAAAAA','#CCCCCC'
+  '#FFE5E5','#FFCCCC','#FF9999','#FF6666',
+  '#FF3333','#FF0000','#CC0000','#990000',
+  '#660000','#330000','#240000',
+  '#FFAA44','#44BB88','#4488FF','#888899'
 ];
 
 const DEFAULT_SETTINGS = { work:25, break:5, longBreak:15, stopkyMax:90 };
@@ -1222,7 +1222,7 @@ let secondsLeft   = settings.work * 60;
 let stopwatchSec  = 0;
 let sessionStart  = null;
 let selActivity   = null;     // { name, color } — REQUIRED before start
-let selNewColor   = COLORS[0];
+let selNewColor   = '#FF3333';
 let analyticsPeriod = 'today';
 let selectedSound = localStorage.getItem('pm_sound') || 'bells';
 
@@ -1278,8 +1278,14 @@ function renderActivities() {
   c.innerHTML = '';
   activities.forEach(act => {
     const btn = document.createElement('button');
-    btn.className = 'activity-chip' + (selActivity && selActivity.name === act.name ? ' active' : '');
+    const isActive = selActivity && selActivity.name === act.name;
+    btn.className = 'activity-chip' + (isActive ? ' active' : '');
     btn.style.setProperty('--chip-color', act.color);
+    // Parse hex color to rgba for background (color-mix not supported everywhere)
+    const r = parseInt(act.color.slice(1,3),16);
+    const g = parseInt(act.color.slice(3,5),16);
+    const b = parseInt(act.color.slice(5,7),16);
+    btn.style.setProperty('--chip-bg', `rgba(${r},${g},${b},0.14)`);
     btn.innerHTML = `<span class="chip-dot"></span>${escHtml(act.name)}`;
     btn.onclick = () => selectActivity(act);
     c.appendChild(btn);
@@ -1305,7 +1311,7 @@ function selectActivity(act) {
 
 function openActivityModal() {
   document.getElementById('new-act-name').value = '';
-  selNewColor = COLORS[0];
+  selNewColor = '#FF3333';
   renderColorPalette();
   document.getElementById('activity-modal').classList.add('open');
   setTimeout(() => document.getElementById('new-act-name').focus(), 80);
@@ -1386,6 +1392,7 @@ function resetTimer(silent = false) {
     updateRingStopky(0);
   } else {
     secondsLeft = settings[mode] * 60;
+    document.getElementById('start-btn').className = 'btn-main' + (mode !== 'work' ? ' break-mode' : '');
     updateTimerDisplay();
     updateRingTimer(1);
   }
