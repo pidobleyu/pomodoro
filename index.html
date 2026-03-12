@@ -20,6 +20,8 @@
   --green-dim: rgba(74,222,128,0.12);
   --amber: #fbbf24;
   --amber-dim: rgba(251,191,36,0.12);
+  --indigo: #818cf8;
+  --indigo-dim: rgba(129,140,248,0.12);
   --text: #f4f4f6;
   --text2: #9999aa;
   --text3: #555566;
@@ -36,7 +38,6 @@ body {
   overflow-x: hidden;
 }
 
-/* subtle grid bg */
 body::before {
   content:'';
   position:fixed;
@@ -71,10 +72,7 @@ header {
   color:var(--text);
   letter-spacing:-0.3px;
 }
-.wordmark em {
-  font-style:italic;
-  color:var(--accent);
-}
+.wordmark em { font-style:italic; color:var(--accent); }
 
 .gcal-area { display:flex; align-items:center; gap:10px; }
 
@@ -104,7 +102,7 @@ header {
 .btn-ghost.active { border-color:var(--green); color:var(--green); background:var(--green-dim); }
 .btn-ghost svg { flex-shrink:0; }
 
-/* ── NAV TABS ── */
+/* ── NAV ── */
 .nav {
   display:flex;
   gap:2px;
@@ -138,19 +136,45 @@ header {
 .panel { display:none; }
 .panel.active { display:block; }
 
-/* ── TIMER PANEL ── */
+/* ── TIMER/STOPKY MODE SWITCH ── */
+.app-mode-switch {
+  display:flex;
+  gap:2px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:4px;
+  width:fit-content;
+  margin-bottom:20px;
+}
+.app-mode-btn {
+  padding:6px 16px;
+  border-radius:7px;
+  border:none;
+  background:transparent;
+  color:var(--text3);
+  font-family:'Geist Mono', monospace;
+  font-size:12px;
+  cursor:pointer;
+  transition:all 0.15s;
+  letter-spacing:0.03em;
+}
+.app-mode-btn.active {
+  background:var(--surface3);
+  color:var(--text);
+  border:1px solid var(--border);
+}
+
+/* ── TIMER LAYOUT ── */
 .timer-layout {
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:16px;
   align-items:start;
 }
+@media(max-width:600px) { .timer-layout { grid-template-columns:1fr; } }
 
-@media(max-width:600px) {
-  .timer-layout { grid-template-columns:1fr; }
-}
-
-/* Timer card */
+/* ── TIMER CARD ── */
 .timer-card {
   background:var(--surface);
   border:1px solid var(--border);
@@ -162,11 +186,7 @@ header {
   gap:20px;
 }
 
-.mode-pills {
-  display:flex;
-  gap:6px;
-}
-
+.mode-pills { display:flex; gap:6px; }
 .mode-pill {
   padding:4px 12px;
   border-radius:20px;
@@ -179,37 +199,24 @@ header {
   transition:all 0.15s;
   letter-spacing:0.04em;
 }
-.mode-pill.active {
-  background:var(--accent-dim);
-  border-color:var(--accent);
-  color:var(--accent);
-}
-.mode-pill.break.active {
-  background:var(--green-dim);
-  border-color:var(--green);
-  color:var(--green);
+.mode-pill.active { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); }
+.mode-pill.break.active { background:var(--green-dim); border-color:var(--green); color:var(--green); }
+
+.stopky-badge {
+  font-family:'Geist Mono', monospace;
+  font-size:11px;
+  color:var(--indigo);
+  letter-spacing:0.08em;
+  border:1px solid var(--indigo);
+  background:var(--indigo-dim);
+  padding:3px 12px;
+  border-radius:20px;
 }
 
-/* Circular timer */
-.ring-wrap {
-  position:relative;
-  width:190px;
-  height:190px;
-  flex-shrink:0;
-}
-
-.ring-svg {
-  width:190px;
-  height:190px;
-  transform:rotate(-90deg);
-}
-
-.ring-bg {
-  fill:none;
-  stroke:var(--surface3);
-  stroke-width:6;
-}
-
+/* Ring */
+.ring-wrap { position:relative; width:190px; height:190px; flex-shrink:0; }
+.ring-svg { width:190px; height:190px; transform:rotate(-90deg); }
+.ring-bg { fill:none; stroke:var(--surface3); stroke-width:6; }
 .ring-progress {
   fill:none;
   stroke:var(--accent);
@@ -220,6 +227,7 @@ header {
   transition: stroke-dashoffset 1s linear, stroke 0.3s;
 }
 .ring-progress.break { stroke:var(--green); }
+.ring-progress.stopky { stroke:var(--indigo); }
 
 .ring-center {
   position:absolute;
@@ -248,11 +256,7 @@ header {
 }
 
 /* Controls */
-.timer-controls {
-  display:flex;
-  gap:8px;
-  align-items:center;
-}
+.timer-controls { display:flex; gap:8px; align-items:center; }
 
 .btn-main {
   padding:10px 28px;
@@ -270,6 +274,7 @@ header {
 .btn-main:hover { opacity:0.88; transform:translateY(-1px); }
 .btn-main:active { transform:translateY(0); }
 .btn-main.break-mode { background:var(--green); color:#000; }
+.btn-main.stopky-mode { background:var(--indigo); }
 
 .btn-icon {
   width:38px; height:38px;
@@ -284,13 +289,7 @@ header {
 }
 .btn-icon:hover { border-color:var(--border2); color:var(--text); }
 
-/* Session counter */
-.session-dots {
-  display:flex;
-  gap:6px;
-  align-items:center;
-}
-
+.session-dots { display:flex; gap:6px; align-items:center; }
 .dot {
   width:8px; height:8px;
   border-radius:50%;
@@ -299,21 +298,28 @@ header {
   transition:all 0.2s;
 }
 .dot.done { background:var(--accent); border-color:var(--accent); }
-.dot.break-done { background:var(--green); border-color:var(--green); }
 
 /* ── SIDE PANEL ── */
-.side-panel {
-  display:flex;
-  flex-direction:column;
-  gap:14px;
-}
+.side-panel { display:flex; flex-direction:column; gap:14px; }
 
-/* Activity input */
+/* ── ACTIVITY CARD ── */
 .activity-card {
   background:var(--surface);
   border:1px solid var(--border);
   border-radius:var(--r);
   padding:18px;
+  transition:border-color 0.2s;
+}
+.activity-card.shake {
+  border-color:var(--accent);
+  animation:shake 0.35s ease;
+}
+@keyframes shake {
+  0%,100% { transform:translateX(0); }
+  20% { transform:translateX(-5px); }
+  40% { transform:translateX(5px); }
+  60% { transform:translateX(-4px); }
+  80% { transform:translateX(4px); }
 }
 
 .card-label {
@@ -325,43 +331,85 @@ header {
   margin-bottom:10px;
 }
 
-.activity-input {
+/* Activity chips */
+.activities-list {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:10px;
+  min-height:32px;
+}
+
+.activity-chip {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:4px 11px;
+  border-radius:20px;
+  border:1px solid var(--border);
+  background:var(--surface2);
+  font-family:'Geist Mono', monospace;
+  font-size:11px;
+  color:var(--text2);
+  cursor:pointer;
+  transition:all 0.15s;
+  letter-spacing:0.03em;
+  user-select:none;
+}
+.activity-chip:hover { border-color:var(--border2); color:var(--text); }
+.activity-chip.active {
+  border-color: var(--chip-color, var(--accent));
+  background: color-mix(in srgb, var(--chip-color, var(--accent)) 14%, transparent);
+  color: var(--chip-color, var(--accent));
+}
+.chip-dot {
+  width:7px; height:7px;
+  border-radius:50%;
+  flex-shrink:0;
+  background:var(--chip-color, var(--accent));
+}
+
+.btn-add-activity {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:30px; height:30px;
+  border-radius:50%;
+  border:1px dashed var(--border2);
+  background:transparent;
+  color:var(--text3);
+  cursor:pointer;
+  font-size:18px;
+  line-height:1;
+  transition:all 0.15s;
+}
+.btn-add-activity:hover { border-color:var(--accent); color:var(--accent); }
+
+.no-activity-hint {
+  font-family:'Geist Mono', monospace;
+  font-size:10px;
+  color:var(--accent);
+  letter-spacing:0.04em;
+  display:none;
+  margin-bottom:6px;
+}
+
+.activity-note {
   width:100%;
   background:var(--surface2);
   border:1px solid var(--border);
   border-radius:7px;
-  padding:9px 12px;
+  padding:8px 12px;
   color:var(--text);
   font-family:'Geist', sans-serif;
-  font-size:14px;
+  font-size:13px;
   outline:none;
   transition:border-color 0.15s;
-  margin-bottom:8px;
 }
-.activity-input:focus { border-color:var(--border2); }
+.activity-note:focus { border-color:var(--border2); }
+.activity-note::placeholder { color:var(--text3); }
 
-.quick-tags {
-  display:flex;
-  flex-wrap:wrap;
-  gap:5px;
-}
-
-.qtag {
-  padding:3px 10px;
-  background:var(--surface3);
-  border:1px solid var(--border);
-  border-radius:20px;
-  font-size:11px;
-  font-family:'Geist Mono', monospace;
-  color:var(--text3);
-  cursor:pointer;
-  transition:all 0.12s;
-  letter-spacing:0.03em;
-}
-.qtag:hover { border-color:var(--border2); color:var(--text2); }
-.qtag.selected { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); }
-
-/* Settings mini */
+/* ── SETTINGS ── */
 .settings-card {
   background:var(--surface);
   border:1px solid var(--border);
@@ -376,17 +424,8 @@ header {
   margin-bottom:10px;
 }
 .setting-row:last-child { margin-bottom:0; }
-
-.setting-name {
-  font-size:13px;
-  color:var(--text2);
-}
-
-.setting-ctrl {
-  display:flex;
-  align-items:center;
-  gap:6px;
-}
+.setting-name { font-size:13px; color:var(--text2); }
+.setting-ctrl { display:flex; align-items:center; gap:6px; }
 
 .num-btn {
   width:24px; height:24px;
@@ -409,7 +448,7 @@ header {
   text-align:center;
 }
 
-/* Today stats */
+/* ── TODAY STATS ── */
 .today-card {
   background:var(--surface);
   border:1px solid var(--border);
@@ -421,7 +460,6 @@ header {
 }
 
 .stat-item { text-align:center; }
-
 .stat-num {
   font-family:'Geist Mono', monospace;
   font-size:22px;
@@ -432,7 +470,6 @@ header {
 }
 .stat-num.accent { color:var(--accent); }
 .stat-num.green { color:var(--green); }
-
 .stat-lbl {
   font-size:10px;
   color:var(--text3);
@@ -448,7 +485,6 @@ header {
   align-items:center;
   margin-bottom:18px;
 }
-
 .history-title {
   font-family:'Instrument Serif', serif;
   font-size:20px;
@@ -469,7 +505,36 @@ header {
 .btn-sm:hover { color:var(--text); border-color:var(--border2); }
 .btn-sm.danger:hover { color:#ff4444; border-color:#ff4444; }
 
-/* Bar chart */
+/* History sub-tabs */
+.history-subtabs {
+  display:flex;
+  gap:2px;
+  margin-bottom:20px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:4px;
+  width:fit-content;
+}
+.history-subtab {
+  padding:6px 16px;
+  border-radius:7px;
+  border:none;
+  background:transparent;
+  color:var(--text3);
+  font-family:'Geist Mono', monospace;
+  font-size:12px;
+  cursor:pointer;
+  transition:all 0.15s;
+  letter-spacing:0.03em;
+}
+.history-subtab.active {
+  background:var(--surface3);
+  color:var(--text);
+  border:1px solid var(--border);
+}
+
+/* ── BAR CHART ── */
 .week-chart {
   background:var(--surface);
   border:1px solid var(--border);
@@ -477,7 +542,6 @@ header {
   padding:20px;
   margin-bottom:16px;
 }
-
 .chart-title {
   font-family:'Geist Mono', monospace;
   font-size:10px;
@@ -502,7 +566,29 @@ header {
   gap:4px;
   height:100%;
   justify-content:flex-end;
+  position:relative;
 }
+
+/* Tooltip */
+.bar-tooltip {
+  position:absolute;
+  bottom:calc(100% + 4px);
+  left:50%;
+  transform:translateX(-50%);
+  background:var(--surface3);
+  border:1px solid var(--border2);
+  border-radius:5px;
+  padding:3px 7px;
+  font-family:'Geist Mono', monospace;
+  font-size:10px;
+  color:var(--text);
+  white-space:nowrap;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 0.12s;
+  z-index:10;
+}
+.bar-col:hover .bar-tooltip { opacity:1; }
 
 .bar-fill {
   width:100%;
@@ -511,7 +597,6 @@ header {
   border-radius:3px 3px 0 0;
   min-height:2px;
   transition:height 0.4s ease;
-  position:relative;
   cursor:default;
 }
 .bar-fill:hover { background:var(--accent); }
@@ -524,7 +609,7 @@ header {
   letter-spacing:0.05em;
 }
 
-/* History list */
+/* ── HISTORY LIST ── */
 .history-list { display:flex; flex-direction:column; gap:8px; }
 
 .history-item {
@@ -540,38 +625,40 @@ header {
 .history-item:hover { border-color:var(--border2); }
 
 .hi-left { display:flex; flex-direction:column; gap:3px; }
-
 .hi-activity {
   font-size:14px;
   font-weight:500;
   color:var(--text);
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
 }
-
+.hi-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.hi-note { font-size:12px; color:var(--text3); font-style:italic; font-weight:400; }
 .hi-meta {
   font-family:'Geist Mono', monospace;
   font-size:11px;
   color:var(--text3);
   letter-spacing:0.03em;
 }
-
-.hi-right { display:flex; align-items:center; gap:10px; }
-
+.hi-right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
 .hi-duration {
   font-family:'Geist Mono', monospace;
   font-size:13px;
   font-weight:600;
   color:var(--accent);
 }
-
-.hi-gcal {
+.hi-badge {
   font-size:10px;
   padding:2px 7px;
   border-radius:4px;
-  background:var(--green-dim);
-  color:var(--green);
   font-family:'Geist Mono', monospace;
   letter-spacing:0.04em;
 }
+.badge-gcal { background:var(--green-dim); color:var(--green); }
+.badge-partial { background:var(--amber-dim); color:var(--amber); }
+.badge-stopky { background:var(--indigo-dim); color:var(--indigo); }
 
 .empty-state {
   text-align:center;
@@ -582,7 +669,132 @@ header {
   letter-spacing:0.05em;
 }
 
-/* ── NOTIFICATION TOAST ── */
+/* ── ANALYTICS ── */
+.analytics-panel { display:none; }
+.analytics-panel.active { display:block; }
+
+.period-tabs {
+  display:flex;
+  gap:4px;
+  margin-bottom:20px;
+}
+.period-tab {
+  padding:5px 14px;
+  border-radius:6px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text3);
+  font-family:'Geist Mono', monospace;
+  font-size:11px;
+  cursor:pointer;
+  transition:all 0.15s;
+}
+.period-tab.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+
+.analytics-row {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  margin-bottom:16px;
+}
+@media(max-width:600px) { .analytics-row { grid-template-columns:1fr; } }
+
+.analytics-card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:20px;
+}
+.analytics-card-title {
+  font-family:'Geist Mono', monospace;
+  font-size:10px;
+  color:var(--text3);
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  margin-bottom:14px;
+}
+.big-num {
+  font-family:'Geist Mono', monospace;
+  font-size:36px;
+  font-weight:700;
+  color:var(--text);
+  line-height:1;
+  margin-bottom:4px;
+}
+.big-num-label { font-size:12px; color:var(--text3); }
+
+/* Pie */
+.pie-wrap { display:flex; gap:16px; align-items:center; }
+.pie-legend { flex:1; display:flex; flex-direction:column; gap:7px; overflow:hidden; }
+.legend-item {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  font-size:12px;
+  color:var(--text2);
+  overflow:hidden;
+}
+.legend-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.legend-pct { font-family:'Geist Mono', monospace; font-size:11px; color:var(--text3); flex-shrink:0; }
+
+/* Activity breakdown bars */
+.breakdown-list { display:flex; flex-direction:column; gap:10px; }
+.breakdown-row { display:flex; flex-direction:column; gap:4px; }
+.breakdown-header { display:flex; justify-content:space-between; align-items:center; }
+.breakdown-name { font-size:12px; color:var(--text2); display:flex; align-items:center; gap:6px; overflow:hidden; }
+.breakdown-name span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.breakdown-val { font-family:'Geist Mono', monospace; font-size:11px; color:var(--text3); flex-shrink:0; }
+.breakdown-bar-bg { height:4px; background:var(--surface3); border-radius:2px; overflow:hidden; }
+.breakdown-bar-fill { height:100%; border-radius:2px; transition:width 0.5s ease; }
+
+/* ── SOUND ── */
+.sound-pill {
+  padding:4px 11px;
+  border-radius:20px;
+  border:1px solid var(--border);
+  background:transparent;
+  font-family:'Geist Mono', monospace;
+  font-size:11px;
+  color:var(--text3);
+  cursor:pointer;
+  transition:all 0.12s;
+  letter-spacing:0.02em;
+}
+.sound-pill:hover { border-color:var(--border2); color:var(--text2); }
+.sound-pill.active { background:var(--amber-dim); border-color:var(--amber); color:var(--amber); }
+
+/* ── PULSE ── */
+@keyframes pulse-ring {
+  0% { box-shadow:0 0 0 0 var(--accent-glow); }
+  70% { box-shadow:0 0 0 12px transparent; }
+  100% { box-shadow:0 0 0 0 transparent; }
+}
+.pulsing .ring-wrap { animation:pulse-ring 2s infinite; border-radius:50%; }
+
+/* ── FINISH FLASH ── */
+.finish-flash {
+  position:fixed;
+  inset:0;
+  z-index:200;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,0.85);
+  backdrop-filter:blur(8px);
+}
+.finish-flash.show { display:flex; }
+.finish-card { text-align:center; padding:40px; }
+.finish-emoji { font-size:56px; margin-bottom:16px; }
+.finish-title {
+  font-family:'Instrument Serif', serif;
+  font-size:32px;
+  font-style:italic;
+  margin-bottom:8px;
+}
+.finish-sub { color:var(--text2); font-size:15px; margin-bottom:28px; }
+.finish-btns { display:flex; gap:10px; justify-content:center; }
+
+/* ── TOAST ── */
 .toast {
   position:fixed;
   bottom:24px;
@@ -605,7 +817,7 @@ header {
 .toast.success { border-color:var(--green); color:var(--green); }
 .toast.error { border-color:var(--accent); color:var(--accent); }
 
-/* ── GCAL MODAL ── */
+/* ── MODALS ── */
 .modal-overlay {
   position:fixed;
   inset:0;
@@ -627,20 +839,13 @@ header {
   max-width:440px;
   width:100%;
 }
-
 .modal h2 {
   font-family:'Instrument Serif', serif;
   font-size:22px;
   font-style:italic;
   margin-bottom:8px;
 }
-
-.modal p {
-  font-size:13px;
-  color:var(--text2);
-  line-height:1.6;
-  margin-bottom:16px;
-}
+.modal p { font-size:13px; color:var(--text2); line-height:1.6; margin-bottom:16px; }
 
 .modal-input {
   width:100%;
@@ -669,7 +874,6 @@ header {
   border-radius:6px;
   border-left:2px solid var(--border2);
 }
-
 .modal-btns { display:flex; gap:8px; justify-content:flex-end; }
 
 .btn-primary {
@@ -687,63 +891,23 @@ header {
 }
 .btn-primary:hover { opacity:0.85; }
 
-.sound-pill {
-  padding:4px 11px;
-  border-radius:20px;
-  border:1px solid var(--border);
-  background:transparent;
-  font-family:'Geist Mono', monospace;
-  font-size:11px;
-  color:var(--text3);
+/* Color palette in modal */
+.color-palette {
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-bottom:18px;
+}
+.color-swatch {
+  width:26px; height:26px;
+  border-radius:50%;
+  border:2px solid transparent;
   cursor:pointer;
-  transition:all 0.12s;
-  letter-spacing:0.02em;
+  transition:transform 0.12s;
+  flex-shrink:0;
 }
-.sound-pill:hover { border-color:var(--border2); color:var(--text2); }
-.sound-pill.active { background:var(--amber-dim); border-color:var(--amber); color:var(--amber); }
-
-/* ── PULSE ANIM ── */
-@keyframes pulse-ring {
-  0% { box-shadow:0 0 0 0 var(--accent-glow); }
-  70% { box-shadow:0 0 0 12px transparent; }
-  100% { box-shadow:0 0 0 0 transparent; }
-}
-.pulsing .ring-wrap { animation:pulse-ring 2s infinite; border-radius:50%; }
-
-/* ── FINISH OVERLAY ── */
-.finish-flash {
-  position:fixed;
-  inset:0;
-  z-index:200;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  background:rgba(0,0,0,0.85);
-  backdrop-filter:blur(8px);
-}
-.finish-flash.show { display:flex; }
-
-.finish-card {
-  text-align:center;
-  padding:40px;
-}
-
-.finish-emoji { font-size:56px; margin-bottom:16px; }
-
-.finish-title {
-  font-family:'Instrument Serif', serif;
-  font-size:32px;
-  font-style:italic;
-  margin-bottom:8px;
-}
-
-.finish-sub {
-  color:var(--text2);
-  font-size:15px;
-  margin-bottom:28px;
-}
-
-.finish-btns { display:flex; gap:10px; justify-content:center; }
+.color-swatch:hover { transform:scale(1.18); }
+.color-swatch.selected { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,0.3); }
 </style>
 </head>
 <body>
@@ -769,13 +933,23 @@ header {
 
   <!-- TIMER PANEL -->
   <div class="panel active" id="panel-timer">
+
+    <!-- Timer / Stopky switch -->
+    <div class="app-mode-switch">
+      <button class="app-mode-btn active" id="appmode-timer" onclick="setAppMode('timer')">⏱ timer</button>
+      <button class="app-mode-btn" id="appmode-stopky" onclick="setAppMode('stopky')">▶ stopky</button>
+    </div>
+
     <div class="timer-layout">
-      <!-- Left: Timer -->
+      <!-- Left: clock -->
       <div class="timer-card" id="timer-card">
-        <div class="mode-pills">
+        <!-- Timer: phase pills -->
+        <div class="mode-pills" id="timer-mode-pills">
           <button class="mode-pill active" id="pill-work" onclick="setMode('work')">PRÁCA</button>
           <button class="mode-pill break" id="pill-break" onclick="setMode('break')">PAUZA</button>
         </div>
+        <!-- Stopky: badge -->
+        <div class="stopky-badge" id="stopky-badge" style="display:none;">STOPKY</div>
 
         <div class="ring-wrap">
           <svg class="ring-svg" viewBox="0 0 190 190">
@@ -793,7 +967,7 @@ header {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>
           </div>
           <button class="btn-main" id="start-btn" onclick="toggleTimer()">ŠTART</button>
-          <div class="btn-icon" onclick="skipSession()" title="Preskočiť">
+          <div class="btn-icon" id="skip-btn" onclick="skipOrStop()" title="Preskočiť">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
           </div>
         </div>
@@ -801,17 +975,19 @@ header {
         <div class="session-dots" id="session-dots"></div>
       </div>
 
-      <!-- Right: Controls -->
+      <!-- Right: activity + settings + stats -->
       <div class="side-panel">
-        <!-- Activity -->
-        <div class="activity-card">
+
+        <!-- Activity card -->
+        <div class="activity-card" id="activity-card">
           <div class="card-label">Aktivita</div>
-          <input class="activity-input" id="activity-input" placeholder="Na čom pracuješ?" type="text" maxlength="60">
-          <div class="quick-tags" id="quick-tags"></div>
+          <div class="no-activity-hint" id="no-activity-hint">⚠ Vyber aktivitu pred spustením</div>
+          <div class="activities-list" id="activities-list"></div>
+          <input class="activity-note" id="activity-note" placeholder="Poznámka (voliteľné)" type="text" maxlength="80">
         </div>
 
-        <!-- Settings -->
-        <div class="settings-card">
+        <!-- Settings (timer) -->
+        <div class="settings-card" id="timer-settings-card">
           <div class="card-label">Nastavenia</div>
           <div class="setting-row">
             <span class="setting-name">Práca (min)</span>
@@ -843,6 +1019,23 @@ header {
           </div>
         </div>
 
+        <!-- Settings (stopky) -->
+        <div class="settings-card" id="stopky-settings-card" style="display:none;">
+          <div class="card-label">Nastavenia stopiek</div>
+          <div class="setting-row">
+            <span class="setting-name">Max limit (min)</span>
+            <div class="setting-ctrl">
+              <div class="num-btn" onclick="adjustSetting('stopkyMax',-5)">−</div>
+              <span class="num-val" id="stopkymax-val">90</span>
+              <div class="num-btn" onclick="adjustSetting('stopkyMax',5)">+</div>
+            </div>
+          </div>
+          <div style="margin-top:10px;">
+            <div class="card-label" style="margin-bottom:7px;">Zvuk upozornenia</div>
+            <div id="sound-picker-2" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+          </div>
+        </div>
+
         <!-- Today stats -->
         <div class="today-card">
           <div class="stat-item">
@@ -869,12 +1062,68 @@ header {
       <button class="btn-sm danger" onclick="clearHistory()">vymazať všetko</button>
     </div>
 
-    <div class="week-chart">
-      <div class="chart-title">Pomodoros za posledných 7 dní</div>
-      <div class="bars" id="week-bars"></div>
+    <div class="history-subtabs">
+      <button class="history-subtab active" id="subtab-log" onclick="switchSubtab('log', this)">záznamy</button>
+      <button class="history-subtab" id="subtab-analytics" onclick="switchSubtab('analytics', this)">analýza</button>
     </div>
 
-    <div class="history-list" id="history-list"></div>
+    <!-- Log -->
+    <div id="history-log">
+      <div class="week-chart">
+        <div class="chart-title">Minúty za posledných 7 dní</div>
+        <div class="bars" id="week-bars"></div>
+      </div>
+      <div class="history-list" id="history-list"></div>
+    </div>
+
+    <!-- Analytics -->
+    <div id="history-analytics" style="display:none;">
+      <div class="period-tabs">
+        <button class="period-tab active" onclick="setPeriod('today',this)">dnes</button>
+        <button class="period-tab" onclick="setPeriod('7d',this)">7 dní</button>
+        <button class="period-tab" onclick="setPeriod('30d',this)">30 dní</button>
+        <button class="period-tab" onclick="setPeriod('year',this)">rok</button>
+      </div>
+
+      <div class="analytics-row">
+        <div class="analytics-card">
+          <div class="analytics-card-title">Celkový čas</div>
+          <div class="big-num" id="an-total-min">0</div>
+          <div class="big-num-label">minút</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-title">Počet sessions</div>
+          <div class="big-num" id="an-count">0</div>
+          <div class="big-num-label">sessions</div>
+        </div>
+      </div>
+
+      <div class="analytics-row" style="margin-bottom:16px;">
+        <div class="analytics-card">
+          <div class="analytics-card-title">Rozdelenie aktivít</div>
+          <div class="pie-wrap">
+            <canvas id="pie-canvas" width="110" height="110" style="flex-shrink:0;"></canvas>
+            <div class="pie-legend" id="pie-legend"></div>
+          </div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-title">Top aktivity</div>
+          <div class="breakdown-list" id="breakdown-list"></div>
+        </div>
+      </div>
+
+      <div class="analytics-row">
+        <div class="analytics-card">
+          <div class="analytics-card-title">Denný priemer</div>
+          <div class="big-num" id="an-daily-avg">0</div>
+          <div class="big-num-label">min / deň</div>
+        </div>
+        <div class="analytics-card">
+          <div class="analytics-card-title">Najlepší deň</div>
+          <div class="big-num accent" id="an-best-day" style="font-size:20px;margin-top:6px;">—</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -895,26 +1144,38 @@ header {
 <div class="modal-overlay" id="gcal-modal">
   <div class="modal">
     <h2>Google Kalendár</h2>
-    <p>Zadaj URL tvojho Google Apps Script a ID kalendára. Po dokončení každého Pomodoro sa automaticky pridá udalosť.</p>
-
+    <p>Zadaj URL tvojho Google Apps Script a ID kalendára. Po dokončení každej session sa automaticky pridá udalosť.</p>
     <div class="card-label" style="margin-bottom:6px;">Apps Script URL</div>
     <input class="modal-input" id="gcal-scripturl" placeholder="https://script.google.com/macros/s/.../exec" type="text">
-
     <div class="card-label" style="margin-bottom:6px;">Calendar ID</div>
     <input class="modal-input" id="gcal-calid" placeholder="tvoj.email@gmail.com alebo ID kalendára">
-
     <div class="modal-note">
       💡 Ako získať Apps Script URL:<br>
       1. Choď na script.google.com → New project<br>
-      2. Vlož kód funkcie doPost<br>
+      2. Vlož kód funkcie doGet<br>
       3. Deploy → New deployment → Web app<br>
       4. Execute as: Me · Who has access: Anyone<br>
       5. Skopíruj deployment URL sem
     </div>
-
     <div class="modal-btns">
       <button class="btn-ghost" onclick="closeGCalModal()">Zrušiť</button>
       <button class="btn-primary" onclick="saveGCal()">Uložiť</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD ACTIVITY MODAL -->
+<div class="modal-overlay" id="activity-modal">
+  <div class="modal" style="max-width:360px;">
+    <h2>Nová aktivita</h2>
+    <p>Zadaj názov a vyber farbu pre svoju aktivitu.</p>
+    <div class="card-label" style="margin-bottom:6px;">Názov</div>
+    <input class="modal-input" id="new-act-name" placeholder="napr. Práca, Kód, Štúdium..." maxlength="30" style="margin-bottom:14px;">
+    <div class="card-label" style="margin-bottom:8px;">Farba</div>
+    <div class="color-palette" id="color-palette"></div>
+    <div class="modal-btns">
+      <button class="btn-ghost" onclick="closeActivityModal()">Zrušiť</button>
+      <button class="btn-primary" onclick="confirmAddActivity()">Pridať</button>
     </div>
   </div>
 </div>
@@ -923,7 +1184,7 @@ header {
 <div class="finish-flash" id="finish-flash">
   <div class="finish-card">
     <div class="finish-emoji" id="finish-emoji">🍅</div>
-    <div class="finish-title" id="finish-title">Pomodoro dokončené!</div>
+    <div class="finish-title" id="finish-title">Session dokončená!</div>
     <div class="finish-sub" id="finish-sub">Čas na krátku pauzu.</div>
     <div class="finish-btns">
       <button class="btn-ghost" onclick="dismissFinish()">Zavrieť</button>
@@ -936,25 +1197,36 @@ header {
 <div class="toast" id="toast"></div>
 
 <script>
+// ── CONSTANTS ──
+const COLORS = [
+  '#FF3333','#FF6666','#FF9999','#FFCCCC',
+  '#FF9944','#FFCC44','#AACC44','#44BB88',
+  '#44AADD','#4466FF','#7744FF','#CC44AA',
+  '#888899','#AAAAAA','#CCCCCC'
+];
+
+const DEFAULT_SETTINGS = { work:25, break:5, longBreak:15, stopkyMax:90 };
+
 // ── STATE ──
-const DEFAULT_SETTINGS = { work: 25, break: 5, longBreak: 15 };
-const DEFAULT_TAGS = ['Práca', 'Štúdium', 'Projekt', 'Email', 'Čítanie', 'Kód'];
+let settings    = { ...DEFAULT_SETTINGS, ...(JSON.parse(localStorage.getItem('pm_settings') || 'null') || {}) };
+let sessions    = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
+let gcalConfig  = JSON.parse(localStorage.getItem('pm_gcal') || 'null');
+let activities  = JSON.parse(localStorage.getItem('pm_activities') || '[]');
 
-let settings = JSON.parse(localStorage.getItem('pm_settings') || 'null') || { ...DEFAULT_SETTINGS };
-let sessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
-let gcalConfig = JSON.parse(localStorage.getItem('pm_gcal') || 'null');
-let customTags = JSON.parse(localStorage.getItem('pm_tags') || 'null') || [...DEFAULT_TAGS];
-
-let mode = 'work';         // 'work' | 'break' | 'longBreak'
-let sessionCount = 0;      // completed work sessions in current cycle
-let totalToday = 0;
-let isRunning = false;
+let appMode       = 'timer';  // 'timer' | 'stopky'
+let mode          = 'work';   // 'work' | 'break' | 'longBreak'
+let sessionCount  = 0;
+let isRunning     = false;
 let timerInterval = null;
-let secondsLeft = settings.work * 60;
-let sessionStart = null;
-let currentActivity = '';
+let secondsLeft   = settings.work * 60;
+let stopwatchSec  = 0;
+let sessionStart  = null;
+let selActivity   = null;     // { name, color } — REQUIRED before start
+let selNewColor   = COLORS[0];
+let analyticsPeriod = 'today';
+let selectedSound = localStorage.getItem('pm_sound') || 'bells';
 
-const CIRCUMFERENCE = 2 * Math.PI * 80; // 502.65
+const CIRCUM = 2 * Math.PI * 80; // ~502.65
 
 // ── INIT ──
 function init() {
@@ -963,12 +1235,24 @@ function init() {
   renderSessionDots();
   updateTodayStats();
   updateGCalStatus();
-  renderQuickTags();
-  renderSoundPicker();
+  renderActivities();
+  renderSoundPicker('sound-picker');
+  renderSoundPicker('sound-picker-2');
   requestNotificationPermission();
-  document.getElementById('activity-input').addEventListener('input', e => {
-    currentActivity = e.target.value.trim();
-  });
+}
+
+// ── APP MODE ──
+function setAppMode(m) {
+  if (isRunning) return; // don't switch while running
+  appMode = m;
+  const isTimer = m === 'timer';
+  document.getElementById('appmode-timer').classList.toggle('active', isTimer);
+  document.getElementById('appmode-stopky').classList.toggle('active', !isTimer);
+  document.getElementById('timer-mode-pills').style.display  = isTimer ? 'flex'  : 'none';
+  document.getElementById('stopky-badge').style.display      = isTimer ? 'none'  : 'block';
+  document.getElementById('timer-settings-card').style.display  = isTimer ? 'block' : 'none';
+  document.getElementById('stopky-settings-card').style.display = isTimer ? 'none'  : 'block';
+  resetTimer(true);
 }
 
 // ── TABS ──
@@ -977,24 +1261,111 @@ function switchTab(name, el) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
   el.classList.add('active');
-  if (name === 'history') renderHistory();
+  if (name === 'history') { renderHistory(); }
 }
 
-// ── TIMER ──
+function switchSubtab(name, el) {
+  document.querySelectorAll('.history-subtab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('history-log').style.display       = name === 'log'       ? 'block' : 'none';
+  document.getElementById('history-analytics').style.display = name === 'analytics' ? 'block' : 'none';
+  if (name === 'analytics') renderAnalytics();
+}
+
+// ── ACTIVITY SELECTION ──
+function renderActivities() {
+  const c = document.getElementById('activities-list');
+  c.innerHTML = '';
+  activities.forEach(act => {
+    const btn = document.createElement('button');
+    btn.className = 'activity-chip' + (selActivity && selActivity.name === act.name ? ' active' : '');
+    btn.style.setProperty('--chip-color', act.color);
+    btn.innerHTML = `<span class="chip-dot"></span>${escHtml(act.name)}`;
+    btn.onclick = () => selectActivity(act);
+    c.appendChild(btn);
+  });
+  // + button
+  const add = document.createElement('button');
+  add.className = 'btn-add-activity';
+  add.title = 'Pridať aktivitu';
+  add.textContent = '+';
+  add.onclick = openActivityModal;
+  c.appendChild(add);
+}
+
+function selectActivity(act) {
+  selActivity = act;
+  document.getElementById('no-activity-hint').style.display = 'none';
+  renderActivities();
+  // Update ring color to activity color when idle
+  if (!isRunning && appMode === 'timer' && mode === 'work') {
+    document.getElementById('ring').style.stroke = act.color;
+  }
+}
+
+function openActivityModal() {
+  document.getElementById('new-act-name').value = '';
+  selNewColor = COLORS[0];
+  renderColorPalette();
+  document.getElementById('activity-modal').classList.add('open');
+  setTimeout(() => document.getElementById('new-act-name').focus(), 80);
+}
+
+function closeActivityModal() {
+  document.getElementById('activity-modal').classList.remove('open');
+}
+
+function confirmAddActivity() {
+  const name = document.getElementById('new-act-name').value.trim();
+  if (!name) { showToast('Zadaj názov aktivity', 'error'); return; }
+  if (activities.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+    showToast('Aktivita s týmto názvom už existuje', 'error'); return;
+  }
+  const act = { name, color: selNewColor };
+  activities.push(act);
+  localStorage.setItem('pm_activities', JSON.stringify(activities));
+  closeActivityModal();
+  renderActivities();
+  selectActivity(act);
+  showToast(`"${name}" pridané ✓`, 'success');
+}
+
+function renderColorPalette() {
+  const c = document.getElementById('color-palette');
+  c.innerHTML = '';
+  COLORS.forEach(col => {
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch' + (col === selNewColor ? ' selected' : '');
+    sw.style.background = col;
+    sw.onclick = () => { selNewColor = col; renderColorPalette(); };
+    c.appendChild(sw);
+  });
+}
+
+// ── TIMER CONTROLS ──
 function toggleTimer() {
+  // Require activity before starting
+  if (!isRunning && !selActivity) {
+    const card = document.getElementById('activity-card');
+    card.classList.remove('shake');
+    void card.offsetWidth; // reflow to restart animation
+    card.classList.add('shake');
+    document.getElementById('no-activity-hint').style.display = 'block';
+    setTimeout(() => card.classList.remove('shake'), 400);
+    return;
+  }
   if (isRunning) pauseTimer();
   else startTimer();
 }
 
 function startTimer() {
-  if (!isRunning) {
-    isRunning = true;
-    sessionStart = sessionStart || new Date();
-    currentActivity = document.getElementById('activity-input').value.trim() || 'Bez názvu';
-    document.getElementById('start-btn').textContent = 'PAUZA';
-    document.getElementById('timer-card').classList.add('pulsing');
-    timerInterval = setInterval(tick, 1000);
-  }
+  if (isRunning) return;
+  isRunning = true;
+  sessionStart = sessionStart || new Date();
+  const btn = document.getElementById('start-btn');
+  btn.textContent = 'PAUZA';
+  document.getElementById('timer-card').classList.add('pulsing');
+  timerInterval = setInterval(tick, 1000);
 }
 
 function pauseTimer() {
@@ -1004,139 +1375,168 @@ function pauseTimer() {
   document.getElementById('timer-card').classList.remove('pulsing');
 }
 
-function resetTimer() {
+function resetTimer(silent = false) {
   pauseTimer();
-  secondsLeft = settings[mode] * 60;
+  stopwatchSec = 0;
   sessionStart = null;
+  if (appMode === 'stopky') {
+    document.getElementById('time-display').textContent = '00:00';
+    document.getElementById('time-label').textContent   = 'STOPKY';
+    document.getElementById('start-btn').className = 'btn-main stopky-mode';
+    updateRingStopky(0);
+  } else {
+    secondsLeft = settings[mode] * 60;
+    updateTimerDisplay();
+    updateRingTimer(1);
+  }
   document.getElementById('start-btn').textContent = 'ŠTART';
-  updateTimerDisplay();
-  updateRing(1);
 }
 
-function skipSession() {
+// Skip (timer) / Stop & save (stopky)
+function skipOrStop() {
+  if (appMode === 'stopky') {
+    if (!sessionStart) { resetTimer(); return; }
+    const elapsed = Math.floor(stopwatchSec / 60);
+    pauseTimer();
+    if (elapsed < 1) { resetTimer(); return; }
+    showSkipDialog(elapsed);
+    return;
+  }
+  // Timer: skip current phase
   if (!sessionStart || mode !== 'work') {
     pauseTimer();
     finishSession(false);
     return;
   }
-  // How many minutes have elapsed?
   const elapsed = Math.floor((settings[mode] * 60 - secondsLeft) / 60);
-  if (elapsed < 1) {
-    pauseTimer();
-    finishSession(false);
-    return;
-  }
+  if (elapsed < 1) { pauseTimer(); finishSession(false); return; }
   pauseTimer();
   showSkipDialog(elapsed);
 }
 
-function showSkipDialog(elapsed) {
-  const overlay = document.getElementById('skip-modal');
-  document.getElementById('skip-elapsed').textContent = elapsed;
-  overlay.classList.add('open');
-}
-
-function skipSave() {
-  document.getElementById('skip-modal').classList.remove('open');
-  finishSession(true, true); // partial=true
-}
-
-function skipDiscard() {
-  document.getElementById('skip-modal').classList.remove('open');
-  finishSession(false);
-}
-
+// ── TICK ──
 function tick() {
+  if (appMode === 'stopky') {
+    stopwatchSec++;
+    const mm = Math.floor(stopwatchSec / 60).toString().padStart(2,'0');
+    const ss = (stopwatchSec % 60).toString().padStart(2,'0');
+    document.getElementById('time-display').textContent = `${mm}:${ss}`;
+    document.title = `${mm}:${ss} — Pomodoro`;
+    updateRingStopky(stopwatchSec / (settings.stopkyMax * 60));
+    if (stopwatchSec >= settings.stopkyMax * 60) finishSession(true, false);
+    return;
+  }
   secondsLeft--;
   updateTimerDisplay();
-  const total = settings[mode] * 60;
-  updateRing(secondsLeft / total);
-  if (secondsLeft <= 0) {
-    finishSession(true, false);
-  }
+  updateRingTimer(secondsLeft / (settings[mode] * 60));
+  if (secondsLeft <= 0) finishSession(true, false);
 }
 
 function updateTimerDisplay() {
-  const m = Math.floor(secondsLeft / 60).toString().padStart(2,'0');
-  const s = (secondsLeft % 60).toString().padStart(2,'0');
-  document.getElementById('time-display').textContent = `${m}:${s}`;
-  document.title = `${m}:${s} — Pomodoro`;
+  const mm = Math.floor(secondsLeft / 60).toString().padStart(2,'0');
+  const ss = (secondsLeft % 60).toString().padStart(2,'0');
+  document.getElementById('time-display').textContent = `${mm}:${ss}`;
+  document.title = `${mm}:${ss} — Pomodoro`;
 }
 
-function updateRing(fraction) {
-  const offset = CIRCUMFERENCE * (1 - fraction);
+function updateRingTimer(fraction) {
   const ring = document.getElementById('ring');
-  ring.style.strokeDashoffset = offset;
-  ring.style.strokeDasharray = CIRCUMFERENCE;
-  if (mode === 'work') ring.classList.remove('break');
-  else ring.classList.add('break');
+  ring.style.stroke = mode === 'work' ? (selActivity ? selActivity.color : 'var(--accent)') : 'var(--green)';
+  ring.style.strokeDasharray  = CIRCUM;
+  ring.style.strokeDashoffset = CIRCUM * (1 - Math.max(0, fraction));
 }
 
+function updateRingStopky(fraction) {
+  const ring = document.getElementById('ring');
+  ring.style.stroke = selActivity ? selActivity.color : 'var(--indigo)';
+  ring.style.strokeDasharray  = CIRCUM;
+  ring.style.strokeDashoffset = CIRCUM * (1 - Math.min(1, Math.max(0, fraction)));
+}
+
+// ── FINISH ──
 function finishSession(completed, partial = false) {
   pauseTimer();
+  const isWorkPhase = appMode === 'stopky' || mode === 'work';
 
-  if (mode === 'work' && completed) {
+  if (isWorkPhase && completed) {
     sessionCount++;
-    const activity = currentActivity || 'Bez názvu';
-    const end = new Date();
-    const start = sessionStart || new Date(end - settings.work * 60000);
-    const actualDuration = partial
-      ? Math.max(1, Math.floor((end - start) / 60000))
-      : settings.work;
+    const actName  = selActivity ? selActivity.name  : '—';
+    const actColor = selActivity ? selActivity.color : '#e8533a';
+    const note     = document.getElementById('activity-note').value.trim();
+    const end      = new Date();
+    const start    = sessionStart || new Date(end - settings.work * 60000);
+
+    let dur;
+    if (appMode === 'stopky') {
+      dur = Math.max(1, Math.floor(stopwatchSec / 60));
+    } else {
+      dur = partial ? Math.max(1, Math.floor((end - start) / 60000)) : settings.work;
+    }
 
     const session = {
       id: Date.now(),
-      activity,
-      duration: actualDuration,
-      planned: settings.work,
+      activity: actName,
+      actColor,
+      note,
+      type: appMode,      // 'timer' | 'stopky'
+      duration: dur,
+      planned: appMode === 'stopky' ? settings.stopkyMax : settings.work,
       partial,
       start: start.toISOString(),
-      end: end.toISOString(),
-      date: toDateStr(end),
-      gcal: false
+      end:   end.toISOString(),
+      date:  toDateStr(end),
+      gcal:  false
     };
+
     sessions.unshift(session);
     localStorage.setItem('pm_sessions', JSON.stringify(sessions));
-
     if (gcalConfig) addToGCal(session);
 
-    showFinishFlash('work', activity, actualDuration, partial);
-    sendNotification(
-      partial ? `⏱ Uložený čiastočný čas` : `🍅 Pomodoro dokončené!`,
-      `${activity} — ${actualDuration} min`
-    );
-    renderSessionDots();
+    showFinishFlash('work', actName, dur, partial);
+    sendNotification(partial ? '⏱ Čas uložený!' : '🍅 Session dokončená!', `${actName} — ${dur} min`);
+    if (appMode === 'timer') renderSessionDots();
     updateTodayStats();
-  } else if (mode !== 'work' && completed) {
+
+  } else if (!isWorkPhase && completed) {
     showFinishFlash('break', '', 0, false);
-    sendNotification('☀️ Pauza skončila!', 'Pripravený na ďalšie Pomodoro?');
+    sendNotification('☀️ Pauza skončila!', 'Pripravený na ďalšiu prácu?');
   }
 
-  secondsLeft = settings[mode] * 60;
-  sessionStart = null;
+  // Reset countdown/stopwatch
+  if (appMode === 'stopky') {
+    stopwatchSec = 0;
+    sessionStart = null;
+    document.getElementById('time-display').textContent = '00:00';
+    updateRingStopky(0);
+    document.getElementById('start-btn').textContent = 'ŠTART';
+  } else {
+    secondsLeft  = settings[mode] * 60;
+    sessionStart = null;
+  }
 }
 
 function showFinishFlash(type, activity, duration, partial) {
-  const ff = document.getElementById('finish-flash');
   const nextBtn = document.getElementById('finish-next-btn');
-
   if (type === 'work') {
     document.getElementById('finish-emoji').textContent = partial ? '⏱️' : '🍅';
-    document.getElementById('finish-title').textContent = partial ? 'Čas uložený!' : 'Pomodoro dokončené!';
-    document.getElementById('finish-sub').textContent =
-      `"${activity}" — ${duration} min${partial ? ' (čiastočné)' : ' sústredenia'}.`;
-    const isLong = sessionCount % 4 === 0;
-    nextBtn.textContent = isLong ? 'Dlhá pauza' : 'Krátka pauza';
-    nextBtn.dataset.next = isLong ? 'longBreak' : 'break';
+    document.getElementById('finish-title').textContent = partial ? 'Čas uložený!' : 'Session dokončená!';
+    document.getElementById('finish-sub').textContent   = `"${activity}" — ${duration} min${partial ? ' (čiastočné)' : ''}.`;
+    if (appMode === 'stopky') {
+      nextBtn.textContent  = 'OK';
+      nextBtn.dataset.next = '';
+    } else {
+      const long = sessionCount % 4 === 0;
+      nextBtn.textContent  = long ? 'Dlhá pauza' : 'Krátka pauza';
+      nextBtn.dataset.next = long ? 'longBreak'  : 'break';
+    }
   } else {
     document.getElementById('finish-emoji').textContent = '☀️';
     document.getElementById('finish-title').textContent = 'Pauza skončila!';
-    document.getElementById('finish-sub').textContent = 'Pripravený na ďalšie Pomodoro?';
-    nextBtn.textContent = 'Spustiť Pomodoro';
+    document.getElementById('finish-sub').textContent   = 'Pripravený na ďalšiu prácu?';
+    nextBtn.textContent  = 'Spustiť prácu';
     nextBtn.dataset.next = 'work';
   }
-
-  ff.classList.add('show');
+  document.getElementById('finish-flash').classList.add('show');
   playSound();
 }
 
@@ -1145,363 +1545,362 @@ function dismissFinish() {
 }
 
 function startNextPhase() {
-  const next = document.getElementById('finish-next-btn').dataset.next || 'break';
+  const next = document.getElementById('finish-next-btn').dataset.next;
   dismissFinish();
+  if (!next) return;
   setMode(next);
-  setTimeout(() => startTimer(), 300);
+  setTimeout(startTimer, 300);
 }
 
 function setMode(m) {
-  mode = m;
+  mode        = m;
   secondsLeft = settings[m] * 60;
   sessionStart = null;
-  isRunning = false;
+  isRunning    = false;
   clearInterval(timerInterval);
-
   document.getElementById('start-btn').textContent = 'ŠTART';
-  document.getElementById('start-btn').className = 'btn-main' + (m !== 'work' ? ' break-mode' : '');
+  document.getElementById('start-btn').className   = 'btn-main' + (m !== 'work' ? ' break-mode' : '');
   document.getElementById('timer-card').classList.remove('pulsing');
   document.getElementById('time-label').textContent =
     m === 'work' ? 'PRÁCA' : m === 'break' ? 'PAUZA' : 'DLHÁ PAUZA';
   document.getElementById('pill-work').classList.toggle('active', m === 'work');
   document.getElementById('pill-break').classList.toggle('active', m !== 'work');
-
   updateTimerDisplay();
-  updateRing(1);
+  updateRingTimer(1);
 }
+
+// ── SKIP DIALOG ──
+function showSkipDialog(elapsed) {
+  document.getElementById('skip-elapsed').textContent = elapsed;
+  document.getElementById('skip-modal').classList.add('open');
+}
+function skipSave()    { document.getElementById('skip-modal').classList.remove('open'); finishSession(true, true); }
+function skipDiscard() { document.getElementById('skip-modal').classList.remove('open'); resetTimer(); }
 
 // ── SOUND ──
 const SOUNDS = {
   bells: (ctx, t) => {
-    [523, 659, 784, 1047].forEach((f, i) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
+    [523,659,784,1047].forEach((f,i) => {
+      const o=ctx.createOscillator(), g=ctx.createGain();
       o.connect(g); g.connect(ctx.destination);
-      o.type = 'sine'; o.frequency.value = f;
-      g.gain.setValueAtTime(0, t + i*0.18);
-      g.gain.linearRampToValueAtTime(0.3, t + i*0.18 + 0.05);
-      g.gain.exponentialRampToValueAtTime(0.001, t + i*0.18 + 0.5);
-      o.start(t + i*0.18); o.stop(t + i*0.18 + 0.6);
+      o.type='sine'; o.frequency.value=f;
+      g.gain.setValueAtTime(0, t+i*0.18);
+      g.gain.linearRampToValueAtTime(0.3, t+i*0.18+0.05);
+      g.gain.exponentialRampToValueAtTime(0.001, t+i*0.18+0.5);
+      o.start(t+i*0.18); o.stop(t+i*0.18+0.6);
     });
   },
   beep: (ctx, t) => {
-    [880, 660, 880].forEach((f, i) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
+    [880,660,880].forEach((f,i) => {
+      const o=ctx.createOscillator(), g=ctx.createGain();
       o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = f;
-      g.gain.setValueAtTime(0.35, t + i*0.15);
-      g.gain.exponentialRampToValueAtTime(0.001, t + i*0.15 + 0.12);
-      o.start(t + i*0.15); o.stop(t + i*0.15 + 0.15);
+      o.frequency.value=f;
+      g.gain.setValueAtTime(0.35, t+i*0.15);
+      g.gain.exponentialRampToValueAtTime(0.001, t+i*0.15+0.12);
+      o.start(t+i*0.15); o.stop(t+i*0.15+0.15);
     });
   },
   chime: (ctx, t) => {
-    const o = ctx.createOscillator(), g = ctx.createGain();
+    const o=ctx.createOscillator(), g=ctx.createGain();
     o.connect(g); g.connect(ctx.destination);
-    o.type = 'triangle';
-    o.frequency.setValueAtTime(1318, t);
-    o.frequency.exponentialRampToValueAtTime(659, t + 0.8);
-    g.gain.setValueAtTime(0.4, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
-    o.start(t); o.stop(t + 1.2);
+    o.type='triangle';
+    o.frequency.setValueAtTime(1318,t);
+    o.frequency.exponentialRampToValueAtTime(659,t+0.8);
+    g.gain.setValueAtTime(0.4,t);
+    g.gain.exponentialRampToValueAtTime(0.001,t+1.2);
+    o.start(t); o.stop(t+1.2);
   }
 };
 
-let selectedSound = localStorage.getItem('pm_sound') || 'bells';
-
 function playSound() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const fn = SOUNDS[selectedSound] || SOUNDS.bells;
-    fn(ctx, ctx.currentTime);
-  } catch(e) {}
+  try { const ctx=new(window.AudioContext||window.webkitAudioContext)(); (SOUNDS[selectedSound]||SOUNDS.bells)(ctx,ctx.currentTime); } catch(e){}
 }
-
 function setSoundPref(s) {
-  selectedSound = s;
-  localStorage.setItem('pm_sound', s);
-  document.querySelectorAll('.sound-pill').forEach(p => p.classList.toggle('active', p.dataset.sound === s));
+  selectedSound=s;
+  localStorage.setItem('pm_sound',s);
+  document.querySelectorAll('.sound-pill').forEach(p=>p.classList.toggle('active',p.dataset.sound===s));
   playSound();
+}
+function renderSoundPicker(id) {
+  const c=document.getElementById(id); if(!c) return;
+  const list=[{id:'bells',label:'🔔 Zvony'},{id:'beep',label:'📡 Pípnutie'},{id:'chime',label:'🎵 Chime'}];
+  c.innerHTML='';
+  list.forEach(s=>{
+    const b=document.createElement('button');
+    b.className='sound-pill'+(selectedSound===s.id?' active':'');
+    b.dataset.sound=s.id; b.textContent=s.label;
+    b.onclick=()=>setSoundPref(s.id);
+    c.appendChild(b);
+  });
 }
 
 // ── NOTIFICATIONS ──
 function requestNotificationPermission() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') {
-    Notification.requestPermission().then(p => {
-      if (p === 'granted') showToast('Notifikácie povolené ✓', 'success');
-    });
-  }
+  if(!('Notification' in window)) return;
+  if(Notification.permission==='default') Notification.requestPermission().then(p=>{ if(p==='granted') showToast('Notifikácie povolené ✓','success'); });
 }
-
-function sendNotification(title, body) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try { new Notification(title, { body, icon: 'https://em-content.zobj.net/source/apple/354/tomato_1f345.png' }); } catch(e) {}
+function sendNotification(title,body) {
+  if(!('Notification' in window)||Notification.permission!=='granted') return;
+  try{ new Notification(title,{body,icon:'https://em-content.zobj.net/source/apple/354/tomato_1f345.png'}); }catch(e){}
 }
 
 // ── SESSION DOTS ──
 function renderSessionDots() {
-  const container = document.getElementById('session-dots');
-  container.innerHTML = '';
-  for (let i = 0; i < 4; i++) {
-    const d = document.createElement('div');
-    d.className = 'dot' + (i < sessionCount % 4 || (sessionCount > 0 && sessionCount % 4 === 0 && i < 4) ? ' done' : '');
-    if (sessionCount % 4 === 0 && sessionCount > 0) d.className = 'dot done';
-    container.appendChild(d);
-  }
-  // re-render correctly
-  container.innerHTML = '';
-  const cyclePos = sessionCount % 4;
-  for (let i = 0; i < 4; i++) {
-    const d = document.createElement('div');
-    d.className = 'dot' + (i < cyclePos ? ' done' : '');
-    container.appendChild(d);
-  }
+  const c=document.getElementById('session-dots'); c.innerHTML='';
+  const pos=sessionCount%4;
+  for(let i=0;i<4;i++){const d=document.createElement('div');d.className='dot'+(i<pos?' done':'');c.appendChild(d);}
 }
 
 // ── TODAY STATS ──
 function updateTodayStats() {
-  const today = toDateStr(new Date());
-  const todaySessions = sessions.filter(s => s.date === today);
-  const count = todaySessions.length;
-  const minutes = todaySessions.reduce((a, s) => a + s.duration, 0);
-
-  // streak: consecutive days
-  let streak = 0;
-  const d = new Date();
-  while (true) {
-    const ds = toDateStr(d);
-    if (sessions.some(s => s.date === ds)) {
-      streak++;
-      d.setDate(d.getDate() - 1);
-    } else break;
-  }
-
-  document.getElementById('stat-pomodoros').textContent = count;
-  document.getElementById('stat-minutes').textContent = minutes;
-  document.getElementById('stat-streak').textContent = streak;
+  const today=toDateStr(new Date());
+  const ts=sessions.filter(s=>s.date===today);
+  const count=ts.filter(s=>s.type!=='stopky').length; // timer sessions only for "dnes"
+  const minutes=ts.reduce((a,s)=>a+s.duration,0);
+  let streak=0; const d=new Date();
+  while(true){const ds=toDateStr(d); if(sessions.some(s=>s.date===ds)){streak++;d.setDate(d.getDate()-1);}else break;}
+  document.getElementById('stat-pomodoros').textContent=count;
+  document.getElementById('stat-minutes').textContent=minutes;
+  document.getElementById('stat-streak').textContent=streak;
 }
 
 // ── SETTINGS ──
-function adjustSetting(key, delta) {
-  const minMap = { work: 5, break: 1, longBreak: 5 };
-  const maxMap = { work: 90, break: 30, longBreak: 60 };
-  settings[key] = Math.max(minMap[key], Math.min(maxMap[key], settings[key] + delta));
-  localStorage.setItem('pm_settings', JSON.stringify(settings));
+function adjustSetting(key,delta) {
+  const mn={work:5,break:1,longBreak:5,stopkyMax:5};
+  const mx={work:90,break:30,longBreak:60,stopkyMax:180};
+  settings[key]=Math.max(mn[key],Math.min(mx[key],settings[key]+delta));
+  localStorage.setItem('pm_settings',JSON.stringify(settings));
   updateSettingsUI();
-  if (!isRunning) {
-    secondsLeft = settings[mode] * 60;
-    updateTimerDisplay();
-    updateRing(1);
-  }
+  if(!isRunning && appMode==='timer'){secondsLeft=settings[mode]*60; updateTimerDisplay(); updateRingTimer(1);}
 }
-
 function updateSettingsUI() {
-  document.getElementById('work-val').textContent = settings.work;
-  document.getElementById('break-val').textContent = settings.break;
-  document.getElementById('longbreak-val').textContent = settings.longBreak;
-}
-
-// ── SOUND PICKER ──
-function renderSoundPicker() {
-  const container = document.getElementById('sound-picker');
-  if (!container) return;
-  const sounds = [{ id:'bells', label:'🔔 Zvony' }, { id:'beep', label:'📡 Pípnutie' }, { id:'chime', label:'🎵 Chime' }];
-  container.innerHTML = '';
-  sounds.forEach(s => {
-    const btn = document.createElement('button');
-    btn.className = 'sound-pill' + (selectedSound === s.id ? ' active' : '');
-    btn.dataset.sound = s.id;
-    btn.textContent = s.label;
-    btn.onclick = () => setSoundPref(s.id);
-    container.appendChild(btn);
-  });
-}
-function renderQuickTags() {
-  const container = document.getElementById('quick-tags');
-  container.innerHTML = '';
-  customTags.forEach(tag => {
-    const btn = document.createElement('button');
-    btn.className = 'qtag';
-    btn.textContent = tag;
-    btn.onclick = () => {
-      document.getElementById('activity-input').value = tag;
-      currentActivity = tag;
-      container.querySelectorAll('.qtag').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-    };
-    container.appendChild(btn);
-  });
+  document.getElementById('work-val').textContent=settings.work;
+  document.getElementById('break-val').textContent=settings.break;
+  document.getElementById('longbreak-val').textContent=settings.longBreak;
+  document.getElementById('stopkymax-val').textContent=settings.stopkyMax;
 }
 
 // ── HISTORY ──
 function renderHistory() {
   renderWeekChart();
-  const list = document.getElementById('history-list');
-  if (sessions.length === 0) {
-    list.innerHTML = '<div class="empty-state">// žiadne záznamy ešte</div>';
-    return;
-  }
-  list.innerHTML = '';
-  sessions.slice(0, 50).forEach(s => {
-    const start = new Date(s.start);
-    const item = document.createElement('div');
-    item.className = 'history-item';
-    item.innerHTML = `
+  const list=document.getElementById('history-list');
+  if(!sessions.length){list.innerHTML='<div class="empty-state">// žiadne záznamy ešte</div>';return;}
+  list.innerHTML='';
+  sessions.slice(0,60).forEach(s=>{
+    const start=new Date(s.start);
+    const item=document.createElement('div');
+    item.className='history-item';
+    const dot=s.actColor||'var(--accent)';
+    const typeLabel=s.type==='stopky'?`<span class="hi-badge badge-stopky">stopky</span>`:'';
+    const noteLabel=s.note?`<span class="hi-note">${escHtml(s.note)}</span>`:'';
+    item.innerHTML=`
       <div class="hi-left">
-        <div class="hi-activity">${escHtml(s.activity)}</div>
+        <div class="hi-activity">
+          <span class="hi-dot" style="background:${dot}"></span>
+          ${escHtml(s.activity)}
+          ${typeLabel}${noteLabel}
+        </div>
         <div class="hi-meta">${formatDate(start)} · ${formatTime(start)}</div>
       </div>
       <div class="hi-right">
-        <div class="hi-duration">${s.duration}min${s.partial ? `<span style="color:var(--text3);font-size:10px;margin-left:3px;">/${s.planned||'?'}</span>` : ''}</div>
-        ${s.partial ? '<span class="hi-gcal" style="background:var(--amber-dim);color:var(--amber);">čiastočné</span>' : ''}
-        ${s.gcal ? '<span class="hi-gcal">gcal ✓</span>' : ''}
-      </div>
-    `;
+        <div class="hi-duration">${s.duration}min${s.partial?`<span style="color:var(--text3);font-size:10px;margin-left:3px;">/${s.planned||'?'}</span>`:''}</div>
+        ${s.partial?'<span class="hi-badge badge-partial">čiastočné</span>':''}
+        ${s.gcal?'<span class="hi-badge badge-gcal">gcal ✓</span>':''}
+      </div>`;
     list.appendChild(item);
   });
 }
 
 function renderWeekChart() {
-  const container = document.getElementById('week-bars');
-  container.innerHTML = '';
-  const days = ['Ne','Po','Ut','St','Št','Pi','So'];
-  const today = new Date();
-  const counts = [];
-
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const ds = toDateStr(d);
-    const count = sessions.filter(s => s.date === ds).length;
-    counts.push({ day: days[d.getDay()], count, isToday: i === 0 });
+  const c=document.getElementById('week-bars'); c.innerHTML='';
+  const days=['Ne','Po','Ut','St','Št','Pi','So'];
+  const today=new Date(); const data=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(today); d.setDate(d.getDate()-i);
+    const ds=toDateStr(d);
+    const mins=sessions.filter(s=>s.date===ds).reduce((a,s)=>a+s.duration,0);
+    data.push({day:days[d.getDay()],mins,isToday:i===0});
   }
-
-  const max = Math.max(...counts.map(c => c.count), 1);
-
-  counts.forEach(c => {
-    const col = document.createElement('div');
-    col.className = 'bar-col';
-    const pct = Math.max((c.count / max) * 76, c.count > 0 ? 4 : 0);
-    col.innerHTML = `
-      <div class="bar-fill${c.isToday ? ' today-bar' : ''}" style="height:${pct}px" title="${c.count} pomodoros"></div>
-      <div class="bar-day">${c.day}</div>
-    `;
-    container.appendChild(col);
+  const max=Math.max(...data.map(d=>d.mins),1);
+  data.forEach(d=>{
+    const col=document.createElement('div'); col.className='bar-col';
+    const h=Math.max((d.mins/max)*70, d.mins>0?4:0);
+    col.innerHTML=`
+      <div class="bar-tooltip">${d.mins} min</div>
+      <div class="bar-fill${d.isToday?' today-bar':''}" style="height:${h}px"></div>
+      <div class="bar-day">${d.day}</div>`;
+    c.appendChild(col);
   });
 }
 
 function clearHistory() {
-  if (confirm('Naozaj vymazať celú históriu?')) {
-    sessions = [];
-    localStorage.removeItem('pm_sessions');
-    renderHistory();
-    updateTodayStats();
-    showToast('História vymazaná', 'error');
-  }
+  if(!confirm('Naozaj vymazať celú históriu?')) return;
+  sessions=[]; localStorage.removeItem('pm_sessions');
+  renderHistory(); updateTodayStats();
+  showToast('História vymazaná','error');
 }
 
-// ── GOOGLE CALENDAR (via Apps Script) ──
+// ── ANALYTICS ──
+function setPeriod(p,el) {
+  analyticsPeriod=p;
+  document.querySelectorAll('.period-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderAnalytics();
+}
+
+function getFiltered() {
+  const now=new Date();
+  return sessions.filter(s=>{
+    const sd=new Date(s.start);
+    if(analyticsPeriod==='today') return s.date===toDateStr(now);
+    if(analyticsPeriod==='7d')   {const d=new Date(now);d.setDate(d.getDate()-7);return sd>=d;}
+    if(analyticsPeriod==='30d')  {const d=new Date(now);d.setDate(d.getDate()-30);return sd>=d;}
+    if(analyticsPeriod==='year') {const d=new Date(now);d.setFullYear(d.getFullYear()-1);return sd>=d;}
+    return true;
+  });
+}
+
+function renderAnalytics() {
+  const filtered=getFiltered();
+  const totalMin=filtered.reduce((a,s)=>a+s.duration,0);
+  document.getElementById('an-total-min').textContent=totalMin;
+  document.getElementById('an-count').textContent=filtered.length;
+
+  const dayCount=analyticsPeriod==='today'?1:analyticsPeriod==='7d'?7:analyticsPeriod==='30d'?30:365;
+  document.getElementById('an-daily-avg').textContent=Math.round(totalMin/dayCount);
+
+  // Best day
+  const byDay={};
+  filtered.forEach(s=>{byDay[s.date]=(byDay[s.date]||0)+s.duration;});
+  const best=Object.entries(byDay).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('an-best-day').textContent=best?`${formatDate(new Date(best[0]))} (${best[1]}min)`:'—';
+
+  // By activity
+  const byAct={};
+  filtered.forEach(s=>{
+    if(!byAct[s.activity]) byAct[s.activity]={min:0,color:s.actColor||'#e8533a',count:0};
+    byAct[s.activity].min+=s.duration;
+    byAct[s.activity].count++;
+  });
+  const entries=Object.entries(byAct).sort((a,b)=>b[1].min-a[1].min);
+
+  drawPie(entries,totalMin);
+  renderPieLegend(entries,totalMin);
+  renderBreakdown(entries);
+}
+
+function drawPie(entries,total) {
+  const canvas=document.getElementById('pie-canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,110,110);
+  if(!total){
+    ctx.beginPath();ctx.arc(55,55,48,0,Math.PI*2);
+    ctx.fillStyle='#202026';ctx.fill();return;
+  }
+  let angle=-Math.PI/2;
+  entries.forEach(([,d])=>{
+    const slice=(d.min/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(55,55);
+    ctx.arc(55,55,48,angle,angle+slice);
+    ctx.closePath();ctx.fillStyle=d.color;ctx.fill();
+    angle+=slice;
+  });
+  // donut hole
+  ctx.beginPath();ctx.arc(55,55,26,0,Math.PI*2);
+  ctx.fillStyle='#111113';ctx.fill();
+  // center total
+  ctx.fillStyle='#f4f4f6';
+  ctx.font='bold 13px "Geist Mono",monospace';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(total,55,55);
+}
+
+function renderPieLegend(entries,total) {
+  const c=document.getElementById('pie-legend');c.innerHTML='';
+  entries.slice(0,5).forEach(([name,d])=>{
+    const pct=total?Math.round(d.min/total*100):0;
+    const item=document.createElement('div');item.className='legend-item';
+    item.innerHTML=`<span class="hi-dot" style="background:${d.color};flex-shrink:0;"></span><span class="legend-name">${escHtml(name)}</span><span class="legend-pct">${pct}%</span>`;
+    c.appendChild(item);
+  });
+}
+
+function renderBreakdown(entries) {
+  const c=document.getElementById('breakdown-list');c.innerHTML='';
+  if(!entries.length){c.innerHTML='<div style="color:var(--text3);font-size:12px;font-family:\'Geist Mono\',monospace;">// žiadne dáta</div>';return;}
+  const maxMin=entries[0][1].min;
+  entries.slice(0,6).forEach(([name,d])=>{
+    const pct=Math.round(d.min/maxMin*100);
+    const row=document.createElement('div');row.className='breakdown-row';
+    row.innerHTML=`
+      <div class="breakdown-header">
+        <span class="breakdown-name"><span class="hi-dot" style="background:${d.color}"></span><span>${escHtml(name)}</span></span>
+        <span class="breakdown-val">${d.min}min · ${d.count}×</span>
+      </div>
+      <div class="breakdown-bar-bg"><div class="breakdown-bar-fill" style="width:${pct}%;background:${d.color}"></div></div>`;
+    c.appendChild(row);
+  });
+}
+
+// ── GOOGLE CALENDAR ──
 function openGCalModal() {
-  if (gcalConfig) {
-    document.getElementById('gcal-scripturl').value = gcalConfig.scriptUrl || '';
-    document.getElementById('gcal-calid').value = gcalConfig.calId || '';
+  if(gcalConfig){
+    document.getElementById('gcal-scripturl').value=gcalConfig.scriptUrl||'';
+    document.getElementById('gcal-calid').value=gcalConfig.calId||'';
   }
   document.getElementById('gcal-modal').classList.add('open');
 }
-
-function closeGCalModal() {
-  document.getElementById('gcal-modal').classList.remove('open');
-}
+function closeGCalModal(){document.getElementById('gcal-modal').classList.remove('open');}
 
 function saveGCal() {
-  const scriptUrl = document.getElementById('gcal-scripturl').value.trim();
-  const calId = document.getElementById('gcal-calid').value.trim();
-  if (!scriptUrl || !calId) { showToast('Vyplň oba polia', 'error'); return; }
-  if (!scriptUrl.includes('script.google.com')) { showToast('URL musí byť z script.google.com', 'error'); return; }
-  gcalConfig = { scriptUrl, calId };
-  localStorage.setItem('pm_gcal', JSON.stringify(gcalConfig));
-  updateGCalStatus();
-  closeGCalModal();
-  showToast('Google Kalendár pripojený ✓', 'success');
+  const url=document.getElementById('gcal-scripturl').value.trim();
+  const cal=document.getElementById('gcal-calid').value.trim();
+  if(!url||!cal){showToast('Vyplň oba polia','error');return;}
+  if(!url.includes('script.google.com')){showToast('URL musí byť z script.google.com','error');return;}
+  gcalConfig={scriptUrl:url,calId:cal};
+  localStorage.setItem('pm_gcal',JSON.stringify(gcalConfig));
+  updateGCalStatus(); closeGCalModal();
+  showToast('Google Kalendár pripojený ✓','success');
 }
 
 function updateGCalStatus() {
-  const el = document.getElementById('gcal-status');
-  const btn = document.getElementById('gcal-btn');
-  if (gcalConfig) {
-    el.textContent = '● pripojený';
-    el.className = 'ok';
-    btn.classList.add('active');
-  } else {
-    el.textContent = '● nepripojený';
-    el.className = '';
-    btn.classList.remove('active');
-  }
+  const el=document.getElementById('gcal-status'), btn=document.getElementById('gcal-btn');
+  if(gcalConfig){el.textContent='● pripojený';el.className='ok';btn.classList.add('active');}
+  else{el.textContent='● nepripojený';el.className='';btn.classList.remove('active');}
 }
 
 async function addToGCal(session) {
-  if (!gcalConfig) return;
+  if(!gcalConfig) return;
   try {
-    const payload = {
-      calendarId: gcalConfig.calId,
-      title: `🍅 ${session.activity}${session.partial ? ' (čiastočné)' : ''}`,
-      description: `Pomodoro — ${session.duration} min${session.partial ? ` z ${session.planned} min` : ''}`,
-      start: session.start,
-      end: session.end
-    };
-
-    // Apps Script vyžaduje no-cors alebo redirect — používame Image trick pre fire-and-forget
-    // Ale najprv skúsime fetch s mode no-cors
-    const url = gcalConfig.scriptUrl + '?' + new URLSearchParams({
-      calendarId: payload.calendarId,
-      title: payload.title,
-      description: payload.description,
-      start: payload.start,
-      end: payload.end
-    });
-
-    // no-cors fetch — odpoveď nedostaneme ale request sa odošle
-    await fetch(url, { method: 'GET', mode: 'no-cors' });
-
-    // Optimisticky označíme ako odoslaté
-    session.gcal = true;
-    localStorage.setItem('pm_sessions', JSON.stringify(sessions));
-    showToast('Odoslané do Google Kalendára ✓', 'success');
-  } catch(e) {
-    console.error(e);
-    showToast('Chyba pri synchronizácii', 'error');
-  }
+    const title=`🍅 ${session.activity}${session.note?' — '+session.note:''}${session.partial?' (čiastočné)':''}`;
+    const desc=`${session.type==='stopky'?'Stopky':'Pomodoro'} — ${session.duration} min${session.partial?` z ${session.planned} min`:''}${session.note?'\nPoznámka: '+session.note:''}`;
+    const url=gcalConfig.scriptUrl+'?'+new URLSearchParams({calendarId:gcalConfig.calId,title,description:desc,start:session.start,end:session.end});
+    await fetch(url,{method:'GET',mode:'no-cors'});
+    session.gcal=true; localStorage.setItem('pm_sessions',JSON.stringify(sessions));
+    showToast('Odoslané do Google Kalendára ✓','success');
+  } catch(e){showToast('Chyba pri synchronizácii','error');}
 }
 
 // ── UTILS ──
-function toDateStr(d) {
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function toDateStr(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function formatDate(d){return d.toLocaleDateString('sk-SK',{day:'numeric',month:'short'});}
+function formatTime(d){return d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+let _toastT;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show'+(type?' '+type:'');
+  clearTimeout(_toastT); _toastT=setTimeout(()=>t.className='toast',3000);
 }
 
-function formatDate(d) {
-  return d.toLocaleDateString('sk-SK', { day:'numeric', month:'short' });
-}
-
-function formatTime(d) {
-  return d.toLocaleTimeString('sk-SK', { hour:'2-digit', minute:'2-digit' });
-}
-
-function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-let toastTimeout;
-function showToast(msg, type = '') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show' + (type ? ' ' + type : '');
-  clearTimeout(toastTimeout);
-  toastTimeout = setTimeout(() => t.className = 'toast', 3000);
-}
-
-// Close modal on overlay click
-document.getElementById('gcal-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeGCalModal();
+// Modal close on overlay click
+['gcal-modal','activity-modal','skip-modal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',function(e){if(e.target===this) this.classList.remove('open');});
 });
+
+// Enter key in activity modal
+document.getElementById('new-act-name').addEventListener('keydown',e=>{if(e.key==='Enter') confirmAddActivity();});
 
 init();
 </script>
