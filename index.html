@@ -64,6 +64,7 @@ header {
   justify-content:space-between;
   align-items:center;
   margin-bottom:36px;
+  gap:10px;
 }
 
 .wordmark {
@@ -74,13 +75,18 @@ header {
 }
 .wordmark em { font-style:italic; color:var(--accent); }
 
-.gcal-area { display:flex; align-items:center; gap:10px; }
+.gcal-area { display:flex; align-items:center; gap:8px; flex-shrink:0; }
 
 #gcal-status {
   font-family:'Geist Mono', monospace;
   font-size:11px;
   color:var(--text3);
-  letter-spacing:0.05em;
+  letter-spacing:0.04em;
+  white-space:nowrap;
+}
+@media(max-width:480px) {
+  #gcal-status { display:none; }
+  .wordmark { font-size:18px; }
 }
 #gcal-status.ok { color:var(--green); }
 
@@ -1770,11 +1776,27 @@ function setPeriod(p,el) {
   renderAnalytics();
 }
 
+function parseSessionDate(s) {
+  // Robust parsing — funguje aj pre ISO string zo Sheets aj pre Date.toISOString()
+  if(!s.start) return new Date(s.date || 0);
+  const d = new Date(s.start);
+  return isNaN(d.getTime()) ? new Date(s.date || 0) : d;
+}
+
+function getSessionDateStr(s) {
+  // Zisti datum session — pouzi s.date ak existuje, inak vypocitaj z s.start
+  if(s.date) return s.date;
+  const d = parseSessionDate(s);
+  return toDateStr(d);
+}
+
 function getFiltered() {
   const now=new Date();
+  const todayStr=toDateStr(now);
   return sessions.filter(s=>{
-    const sd=new Date(s.start);
-    if(analyticsPeriod==='today') return s.date===toDateStr(now);
+    const sd=parseSessionDate(s);
+    const sdate=getSessionDateStr(s);
+    if(analyticsPeriod==='today') return sdate===todayStr;
     if(analyticsPeriod==='7d')   {const d=new Date(now);d.setDate(d.getDate()-7);return sd>=d;}
     if(analyticsPeriod==='30d')  {const d=new Date(now);d.setDate(d.getDate()-30);return sd>=d;}
     if(analyticsPeriod==='year') {const d=new Date(now);d.setFullYear(d.getFullYear()-1);return sd>=d;}
@@ -1793,7 +1815,7 @@ function renderAnalytics() {
 
   // Best day
   const byDay={};
-  filtered.forEach(s=>{byDay[s.date]=(byDay[s.date]||0)+s.duration;});
+  filtered.forEach(s=>{const dk=getSessionDateStr(s);byDay[dk]=(byDay[dk]||0)+s.duration;});
   const best=Object.entries(byDay).sort((a,b)=>b[1]-a[1])[0];
   document.getElementById('an-best-day').textContent=best?`${formatDate(new Date(best[0]))} (${best[1]}min)`:'—';
 
