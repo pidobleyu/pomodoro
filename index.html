@@ -84,6 +84,11 @@ header {
 }
 #gcal-status.ok { color:var(--green); }
 
+@keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+#sync-btn.syncing #sync-icon { animation: spin 0.8s linear infinite; }
+#sync-btn { color: #4488FF; border-color: rgba(68,136,255,0.3); }
+#sync-btn:hover { color: #66aaff; border-color: rgba(68,136,255,0.6); background: rgba(68,136,255,0.08); }
+
 .btn-ghost {
   display:flex; align-items:center; gap:6px;
   background:var(--surface2);
@@ -913,6 +918,9 @@ header {
     <div class="wordmark">pomo<em>doro</em></div>
     <div class="gcal-area">
       <span id="gcal-status">● nepripojený</span>
+      <button class="btn-ghost" id="sync-btn" onclick="syncBidirectional()" title="Synchronizovať so Sheets" style="display:none;padding:7px 9px;">
+        <svg id="sync-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+      </button>
       <button class="btn-ghost" id="gcal-btn" onclick="openGCalModal()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Google Kalendár
@@ -1898,8 +1906,10 @@ function saveGCal() {
 
 function updateGCalStatus() {
   const el=document.getElementById('gcal-status'), btn=document.getElementById('gcal-btn');
+  const syncBtn=document.getElementById('sync-btn');
   if(gcalConfig||sheetsConfig){ el.textContent='● pripojený'; el.className='ok'; btn.classList.add('active'); }
   else{ el.textContent='● nepripojený'; el.className=''; btn.classList.remove('active'); }
+  if(syncBtn) syncBtn.style.display = sheetsConfig ? 'inline-flex' : 'none';
 }
 
 function updateSheetsStatusBadge() {
@@ -1933,28 +1943,63 @@ async function writeSessionToSheets(session) {
 async function loadSessionsFromSheets() {
   if(!sheetsConfig||syncInProgress) return;
   syncInProgress=true;
-  showToast('Načítavam zo Sheets…','');
   try {
     const url = sheetsConfig.scriptUrl+'?'+new URLSearchParams({ action:'read', sheetId:sheetsConfig.sheetId });
     const resp = await fetch(url,{method:'GET',mode:'cors'});
     const json = await resp.json();
-    if(json.status==='ok'&&Array.isArray(json.data)){
-      const sheetsIds=new Set(json.data.map(s=>s.id));
-      const localOnly=sessions.filter(s=>!sheetsIds.has(s.id)&&!s.synced);
-      sessions=[...json.data,...localOnly].sort((a,b)=>new Date(b.start)-new Date(a.start));
-      localStorage.setItem('pm_sessions',JSON.stringify(sessions));
-      updateTodayStats();
-      showToast('Synchronizované ✓','success');
-    }
-  } catch(e){ showToast('Sheets načítanie zlyhalo','error'); }
+    if(json.status==='ok'&&Array.isArray(json.data)) return json.data;
+  } catch(e){}
   finally{ syncInProgress=false; }
+  return null;
+}
+
+async function syncBidirectional() {
+  if(!sheetsConfig){ showToast('Najprv nastav Sheets v nastaveniach','error'); return; }
+  if(syncInProgress) return;
+  syncInProgress=true;
+  const btn = document.getElementById('sync-btn');
+  btn.classList.add('syncing');
+  showToast('Synchronizujem…','');
+  try {
+    // 1. Stiahni zo Sheets
+    const url = sheetsConfig.scriptUrl+'?'+new URLSearchParams({ action:'read', sheetId:sheetsConfig.sheetId });
+    const resp = await fetch(url,{method:'GET',mode:'cors'});
+    const json = await resp.json();
+    if(json.status!=='ok'||!Array.isArray(json.data)) throw new Error('Sheets read failed');
+
+    const sheetsData = json.data;
+    const sheetsIds  = new Set(sheetsData.map(s=>String(s.id)));
+    const localIds   = new Set(sessions.map(s=>String(s.id)));
+
+    // 2. Lokalne sessiony ktore chybaju v Sheets → uploadni
+    const toUpload = sessions.filter(s=>!sheetsIds.has(String(s.id)));
+    for(const s of toUpload){
+      const wu = sheetsConfig.scriptUrl+'?'+new URLSearchParams({ action:'write', sheetId:sheetsConfig.sheetId, data:JSON.stringify(s) });
+      await fetch(wu,{method:'GET',mode:'no-cors'});
+    }
+
+    // 3. Sheets sessiony ktore chybaju lokalne → pridaj
+    const toAdd = sheetsData.filter(s=>!localIds.has(String(s.id)));
+
+    // 4. Spoj a zoradi
+    sessions = [...sessions, ...toAdd].sort((a,b)=>new Date(b.start)-new Date(a.start));
+    // oznac vsetky ako synced
+    sessions.forEach(s=>s.synced=true);
+    localStorage.setItem('pm_sessions',JSON.stringify(sessions));
+    updateTodayStats();
+    renderHistory();
+    showToast(`Sync hotový — +${toAdd.length} zo Sheets, +${toUpload.length} do Sheets ✓`,'success');
+  } catch(e){
+    showToast('Sync zlyhal: '+e.message,'error');
+  } finally {
+    syncInProgress=false;
+    btn.classList.remove('syncing');
+  }
 }
 
 async function syncNowFromSheets() {
-  if(!sheetsConfig){ showToast('Najprv nastav Sheets URL a ID','error'); return; }
-  await loadSessionsFromSheets();
-  renderHistory();
   closeGCalModal();
+  await syncBidirectional();
 }
 
 // ── UTILS ──
