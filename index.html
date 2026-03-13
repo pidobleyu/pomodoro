@@ -1099,10 +1099,10 @@ header {
     <!-- Analytics -->
     <div id="history-analytics" style="display:none;">
       <div class="period-tabs">
-        <button class="period-tab" onclick="setPeriod('today',this)">dnes</button>
+        <button class="period-tab active" onclick="setPeriod('today',this)">dnes</button>
         <button class="period-tab" onclick="setPeriod('7d',this)">7 dní</button>
         <button class="period-tab" onclick="setPeriod('30d',this)">30 dní</button>
-        <button class="period-tab active" onclick="setPeriod('rok',this)">rok</button>
+        <button class="period-tab" onclick="setPeriod('year',this)">rok</button>
       </div>
 
       <div class="analytics-row">
@@ -1253,7 +1253,7 @@ let stopwatchSec  = 0;
 let sessionStart  = null;
 let selActivity   = null;     // { name, color } — REQUIRED before start
 let selNewColor   = '#FF3333';
-let analyticsPeriod = 'rok';
+let analyticsPeriod = 'today';
 let selectedSound = localStorage.getItem('pm_sound') || 'bells';
 
 const CIRCUM = 2 * Math.PI * 80; // ~502.65
@@ -1682,7 +1682,7 @@ function renderSessionDots() {
 // ── TODAY STATS ──
 function updateTodayStats() {
   const today=toDateStr(new Date());
-  const ts=sessions.filter(s=>s.date===today);
+  const ts=sessions.filter(s=>normalizeDateStr(s)===today);
   const count=ts.filter(s=>s.type!=='stopky').length; // timer sessions only for "dnes"
   const minutes=ts.reduce((a,s)=>a+s.duration,0);
   let streak=0; const d=new Date();
@@ -1740,8 +1740,8 @@ function renderHistory() {
 }
 
 function renderWeekChart() {
-  const c = document.getElementById('week-bars');
-  c.innerHTML = '';
+  const el = document.getElementById('week-bars');
+  el.innerHTML = '';
   const days = ['Ne','Po','Ut','St','Št','Pi','So'];
   const today = new Date();
   const data = [];
@@ -1749,7 +1749,7 @@ function renderWeekChart() {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const ds = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    const mins = sessions.filter(s => s.date === ds).reduce((a, s) => a + s.duration, 0);
+    const mins = sessions.filter(s => normalizeDateStr(s) === ds).reduce((a, s) => a + s.duration, 0);
     data.push({ day: days[d.getDay()], mins, isToday: i === 0 });
   }
   const max = Math.max(...data.map(d => d.mins), 1);
@@ -1761,7 +1761,7 @@ function renderWeekChart() {
       <div class="bar-tooltip">${d.mins} min</div>
       <div class="bar-fill${d.isToday ? ' today-bar' : ''}" style="height:${h}px"></div>
       <div class="bar-day">${d.day}</div>`;
-    c.appendChild(col);
+    el.appendChild(col);
   });
 }
 
@@ -1794,8 +1794,29 @@ function getSessionDateStr(s) {
   return toDateStr(d);
 }
 
+function normalizeDateStr(s) {
+  // Vrati vzdy YYYY-MM-DD string bez ohladu na format
+  if (s.date) {
+    const d = s.date;
+    // Uz je YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    // Google Sheets Date object string alebo iny format - parsuj a reformatuj
+    const parsed = new Date(d);
+    if (!isNaN(parsed)) {
+      return parsed.getFullYear()+'-'+String(parsed.getMonth()+1).padStart(2,'0')+'-'+String(parsed.getDate()).padStart(2,'0');
+    }
+  }
+  // Fallback - vypocitaj z start ISO stringu
+  if (s.start) {
+    const parsed = new Date(s.start);
+    if (!isNaN(parsed)) {
+      return parsed.getFullYear()+'-'+String(parsed.getMonth()+1).padStart(2,'0')+'-'+String(parsed.getDate()).padStart(2,'0');
+    }
+  }
+  return '';
+}
+
 function getFiltered() {
-  // Pouzi string porovnanie YYYY-MM-DD - funguje bez timezone problemov
   function nDaysAgoStr(n) {
     const d = new Date();
     d.setDate(d.getDate() - n);
@@ -1803,7 +1824,7 @@ function getFiltered() {
   }
   const todayStr = nDaysAgoStr(0);
   return sessions.filter(s => {
-    const sd = s.date || '';
+    const sd = normalizeDateStr(s);
     if (!sd) return false;
     if (analyticsPeriod === 'today') return sd === todayStr;
     if (analyticsPeriod === '7d')    return sd >= nDaysAgoStr(7);
@@ -2019,6 +2040,32 @@ async function syncBidirectional() {
     localStorage.setItem('pm_sessions',JSON.stringify(sessions));
     updateTodayStats();
     renderHistory();
+    // Sync aktivit - zapis lokalne aktivity do Sheets (action=writeActivities)
+    if (activities.length > 0) {
+      try {
+        const au = sheetsConfig.scriptUrl+'?'+new URLSearchParams({
+          action: 'writeActivities',
+          sheetId: sheetsConfig.sheetId,
+          data: JSON.stringify(activities)
+        });
+        await fetch(au, {method:'GET', mode:'no-cors'});
+      } catch(e) {}
+    }
+    // Nacitaj aktivity zo Sheets
+    try {
+      const ar = sheetsConfig.scriptUrl+'?'+new URLSearchParams({ action:'readActivities', sheetId:sheetsConfig.sheetId });
+      const aresp = await fetch(ar, {method:'GET', mode:'cors'});
+      const ajson = await aresp.json();
+      if (ajson.status === 'ok' && Array.isArray(ajson.data) && ajson.data.length > 0) {
+        // Merge - spoj lokalne a Sheets aktivity podla nazvu
+        const names = new Set(activities.map(a => a.name));
+        const toAddAct = ajson.data.filter(a => !names.has(a.name));
+        activities = [...activities, ...toAddAct];
+        localStorage.setItem('pm_activities', JSON.stringify(activities));
+        renderActivities();
+      }
+    } catch(e) {}
+
     showToast(`Sync hotový — +${toAdd.length} zo Sheets, +${toUpload.length} do Sheets ✓`,'success');
   } catch(e){
     showToast('Sync zlyhal: '+e.message,'error');
