@@ -1681,7 +1681,7 @@ function renderSessionDots() {
 
 // ── TODAY STATS ──
 function updateTodayStats() {
-  const today=toDateStr(new Date());
+  const today=todayLocalStr();
   const ts=sessions.filter(s=>s.date===today);
   const count=ts.filter(s=>s.type!=='stopky').length; // timer sessions only for "dnes"
   const minutes=ts.reduce((a,s)=>a+s.duration,0);
@@ -1746,7 +1746,7 @@ function renderWeekChart() {
   for(let i=6;i>=0;i--){
     const d=new Date(today); d.setDate(d.getDate()-i);
     const ds=toDateStr(d);
-    const mins=sessions.filter(s=>s.date===ds).reduce((a,s)=>a+s.duration,0);
+    const mins=sessions.filter(s=>getSessionDateStr(s)===ds).reduce((a,s)=>a+s.duration,0);
     data.push({day:days[d.getDay()],mins,isToday:i===0});
   }
   const max=Math.max(...data.map(d=>d.mins),1);
@@ -1791,19 +1791,21 @@ function getSessionDateStr(s) {
 }
 
 function getFiltered() {
-  const now=new Date();
-  const todayStr=toDateStr(now);
-  return sessions.filter(s=>{
-    const sd=parseSessionDate(s);
-    const sdate=getSessionDateStr(s);
-    if(analyticsPeriod==='today') return sdate===todayStr;
-    if(analyticsPeriod==='7d')   {const d=new Date(now);d.setDate(d.getDate()-7);return sd>=d;}
-    if(analyticsPeriod==='30d')  {const d=new Date(now);d.setDate(d.getDate()-30);return sd>=d;}
-    if(analyticsPeriod==='year') {const d=new Date(now);d.setFullYear(d.getFullYear()-1);return sd>=d;}
+  const todayStr = todayLocalStr();
+  const startOf = (daysAgo) => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo, 0, 0, 0, 0);
+  };
+  return sessions.filter(s => {
+    const sdate = getSessionDateStr(s);
+    const sd = new Date(sdate + 'T00:00:00'); // parse ako lokalny datum
+    if (analyticsPeriod === 'today') return sdate === todayStr;
+    if (analyticsPeriod === '7d')    return sd >= startOf(7);
+    if (analyticsPeriod === '30d')   return sd >= startOf(30);
+    if (analyticsPeriod === 'year' || analyticsPeriod === 'rok') return sd >= startOf(365);
     return true;
   });
 }
-
 function renderAnalytics() {
   const filtered=getFiltered();
   const totalMin=filtered.reduce((a,s)=>a+s.duration,0);
@@ -2025,7 +2027,16 @@ async function syncNowFromSheets() {
 }
 
 // ── UTILS ──
-function toDateStr(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function toDateStr(d){
+  // Vzdy lokalny cas - nie UTC
+  const dd = d instanceof Date ? d : new Date(d);
+  return dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0')+'-'+String(dd.getDate()).padStart(2,'0');
+}
+
+function todayLocalStr() {
+  const now = new Date();
+  return toDateStr(now);
+}
 function formatDate(d){return d.toLocaleDateString('sk-SK',{day:'numeric',month:'short'});}
 function formatTime(d){return d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
