@@ -1099,10 +1099,10 @@ header {
     <!-- Analytics -->
     <div id="history-analytics" style="display:none;">
       <div class="period-tabs">
-        <button class="period-tab active" onclick="setPeriod('today',this)">dnes</button>
+        <button class="period-tab" onclick="setPeriod('today',this)">dnes</button>
         <button class="period-tab" onclick="setPeriod('7d',this)">7 dní</button>
         <button class="period-tab" onclick="setPeriod('30d',this)">30 dní</button>
-        <button class="period-tab" onclick="setPeriod('year',this)">rok</button>
+        <button class="period-tab active" onclick="setPeriod('rok',this)">rok</button>
       </div>
 
       <div class="analytics-row">
@@ -1253,7 +1253,7 @@ let stopwatchSec  = 0;
 let sessionStart  = null;
 let selActivity   = null;     // { name, color } — REQUIRED before start
 let selNewColor   = '#FF3333';
-let analyticsPeriod = 'today';
+let analyticsPeriod = 'rok';
 let selectedSound = localStorage.getItem('pm_sound') || 'bells';
 
 const CIRCUM = 2 * Math.PI * 80; // ~502.65
@@ -1681,7 +1681,7 @@ function renderSessionDots() {
 
 // ── TODAY STATS ──
 function updateTodayStats() {
-  const today=todayLocalStr();
+  const today=toDateStr(new Date());
   const ts=sessions.filter(s=>s.date===today);
   const count=ts.filter(s=>s.type!=='stopky').length; // timer sessions only for "dnes"
   const minutes=ts.reduce((a,s)=>a+s.duration,0);
@@ -1746,7 +1746,7 @@ function renderWeekChart() {
   for(let i=6;i>=0;i--){
     const d=new Date(today); d.setDate(d.getDate()-i);
     const ds=toDateStr(d);
-    const mins=sessions.filter(s=>getSessionDateStr(s)===ds).reduce((a,s)=>a+s.duration,0);
+    const mins=sessions.filter(s=>s.date===ds).reduce((a,s)=>a+s.duration,0);
     data.push({day:days[d.getDay()],mins,isToday:i===0});
   }
   const max=Math.max(...data.map(d=>d.mins),1);
@@ -1784,28 +1784,28 @@ function parseSessionDate(s) {
 }
 
 function getSessionDateStr(s) {
-  // Zisti datum session — pouzi s.date ak existuje, inak vypocitaj z s.start
-  if(s.date) return s.date;
-  const d = parseSessionDate(s);
-  return toDateStr(d);
+  if (s.date && /^\d{4}-\d{2}-\d{2}$/.test(s.date)) return s.date;
+  if (s.start) {
+    const d = new Date(s.start);
+    if (!isNaN(d)) return toDateStr(d);
+  }
+  return s.date || '';
 }
 
 function getFiltered() {
-  const todayStr = todayLocalStr();
-  const startOf = (daysAgo) => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysAgo, 0, 0, 0, 0);
-  };
+  const now = new Date();
+  const todayStr = toDateStr(now);
   return sessions.filter(s => {
     const sdate = getSessionDateStr(s);
-    const sd = new Date(sdate + 'T00:00:00'); // parse ako lokalny datum
+    const sd = new Date(sdate + 'T00:00:00'); // lokalny cas
     if (analyticsPeriod === 'today') return sdate === todayStr;
-    if (analyticsPeriod === '7d')    return sd >= startOf(7);
-    if (analyticsPeriod === '30d')   return sd >= startOf(30);
-    if (analyticsPeriod === 'year' || analyticsPeriod === 'rok') return sd >= startOf(365);
+    if (analyticsPeriod === '7d')  { const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-7);  return sd>=d; }
+    if (analyticsPeriod === '30d') { const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-30); return sd>=d; }
+    if (analyticsPeriod === 'rok' || analyticsPeriod === 'rok') { const d=new Date(now.getFullYear()-1,now.getMonth(),now.getDate()); return sd>=d; }
     return true;
   });
 }
+
 function renderAnalytics() {
   const filtered=getFiltered();
   const totalMin=filtered.reduce((a,s)=>a+s.duration,0);
@@ -2027,15 +2027,16 @@ async function syncNowFromSheets() {
 }
 
 // ── UTILS ──
-function toDateStr(d){
-  // Vzdy lokalny cas - nie UTC
-  const dd = d instanceof Date ? d : new Date(d);
-  return dd.getFullYear()+'-'+String(dd.getMonth()+1).padStart(2,'0')+'-'+String(dd.getDate()).padStart(2,'0');
-}
-
-function todayLocalStr() {
-  const now = new Date();
-  return toDateStr(now);
+function toDateStr(d) {
+  if (typeof d === 'string') {
+    // Ak je to uz YYYY-MM-DD string, vrat ho priamo bez pars
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    // ISO string — vezmi len datumovu cast v lokalnom case
+    const loc = new Date(d);
+    return loc.getFullYear()+'-'+String(loc.getMonth()+1).padStart(2,'0')+'-'+String(loc.getDate()).padStart(2,'0');
+  }
+  // Date objekt — lokalny cas
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function formatDate(d){return d.toLocaleDateString('sk-SK',{day:'numeric',month:'short'});}
 function formatTime(d){return d.toLocaleTimeString('sk-SK',{hour:'2-digit',minute:'2-digit'});}
