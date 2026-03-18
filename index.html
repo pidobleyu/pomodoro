@@ -363,15 +363,17 @@ header {
   user-select:none;
 }
 .chip-edit {
-  margin-left: 5px;
-  font-size: 10px;
-  opacity: 0.4;
-  transition: opacity 0.15s;
+  margin-left: 6px;
+  font-size: 11px;
+  opacity: 1;
   color: var(--text3);
   cursor: pointer;
-  padding: 2px 3px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.07);
+  line-height: 1;
 }
-.activity-chip:hover .chip-edit { opacity: 1; }
+.chip-edit:hover { background: rgba(255,255,255,0.15); color: var(--text); }
 
 .activity-chip:hover { border-color:var(--border2); color:var(--text); }
 .activity-chip.active {
@@ -2174,9 +2176,9 @@ init();
       document.getElementById('user-avatar').src = user.photoURL || '';
       document.getElementById('user-name').textContent = user.displayName || user.email;
 
-      // Nacitaj vsetko automaticky
-      await fbLoadActivities();
+      // Nacitaj vsetko automaticky - najprv sessions, potom aktivity (recovery potrebuje sessions)
       await fbLoadSessions();
+      await fbLoadActivities();
     } else {
       sessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
       activities = JSON.parse(localStorage.getItem('pm_activities') || '[]');
@@ -2262,9 +2264,9 @@ init();
       }
 
       // Recovery: obnov aktivity z history sessions ktore nie su v zozname
-      const allSessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
+      // sessions uz su nacitane z Firestore (fbLoadSessions prebehol skor)
       const actNames = new Set(activities.map(a => a.name));
-      allSessions.forEach(s => {
+      sessions.forEach(s => {
         if (s.activity && s.activity !== 'Bez názvu' && !actNames.has(s.activity)) {
           activities.push({ name: s.activity, color: s.actColor || '#FF3333' });
           actNames.add(s.activity);
