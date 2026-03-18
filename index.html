@@ -943,7 +943,7 @@ header {
   display:flex;
   flex-wrap:wrap;
   gap:7px;
-  margin-bottom:18px;
+  margin-bottom:10px;
 }
 .color-swatch {
   width:26px; height:26px;
@@ -952,9 +952,87 @@ header {
   cursor:pointer;
   transition:transform 0.12s;
   flex-shrink:0;
+  position:relative;
 }
 .color-swatch:hover { transform:scale(1.18); }
 .color-swatch.selected { border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,0.3); }
+.color-swatch .del-x {
+  display:none;
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  background:rgba(0,0,0,0.55);
+  align-items:center;
+  justify-content:center;
+  font-size:12px;
+  color:#fff;
+  line-height:1;
+}
+.color-palette.edit-mode .color-swatch .del-x { display:flex; }
+.color-palette.edit-mode .color-swatch:hover { transform:none; }
+
+/* Inline color adder panel */
+.color-adder {
+  display:none;
+  align-items:center;
+  gap:8px;
+  margin-bottom:14px;
+  padding:10px 12px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:8px;
+}
+.color-adder.open { display:flex; }
+.color-adder-preview {
+  width:28px; height:28px;
+  border-radius:50%;
+  border:2px solid var(--border2);
+  flex-shrink:0;
+  cursor:pointer;
+  position:relative;
+}
+.color-adder-preview input[type=color] {
+  opacity:0;
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  cursor:pointer;
+  border:none;
+  padding:0;
+}
+.color-adder-hex {
+  font-family:'Geist Mono',monospace;
+  font-size:12px;
+  background:var(--surface3);
+  border:1px solid var(--border);
+  border-radius:5px;
+  color:var(--text);
+  padding:4px 8px;
+  width:80px;
+  outline:none;
+  letter-spacing:0.05em;
+}
+.color-adder-hex:focus { border-color:var(--accent); }
+.color-palette-controls {
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:6px;
+}
+.palette-ctrl-btn {
+  background:none;
+  border:1px solid var(--border);
+  border-radius:5px;
+  color:var(--text3);
+  font-size:11px;
+  padding:3px 8px;
+  cursor:pointer;
+  font-family:'Geist Mono',monospace;
+  transition:all 0.12s;
+}
+.palette-ctrl-btn:hover { border-color:var(--border2); color:var(--text); }
+.palette-ctrl-btn.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
 </style>
 
   <!-- ═══ FIREBASE SDK ═══ -->
@@ -984,7 +1062,8 @@ header {
     window._fbProvider.addScope('https://www.googleapis.com/auth/calendar.events');
     window._fbFns      = { signInWithPopup, signOut, onAuthStateChanged,
                            collection, doc, setDoc, getDocs, deleteDoc,
-                           query, orderBy, writeBatch };
+                           query, orderBy, writeBatch,
+                           credentialFromResult: GoogleAuthProvider.credentialFromResult.bind(GoogleAuthProvider) };
 
     onAuthStateChanged(auth, user => {
       if (typeof window.onFirebaseAuthReady === 'function') {
@@ -1292,7 +1371,19 @@ header {
     <p>Zadaj názov a vyber farbu pre svoju aktivitu.</p>
     <div class="card-label" style="margin-bottom:6px;">Názov</div>
     <input class="modal-input" id="new-act-name" placeholder="napr. Práca, Kód, Štúdium..." maxlength="30" style="margin-bottom:14px;">
-    <div class="card-label" style="margin-bottom:8px;">Farba</div>
+    <div class="card-label" style="margin-bottom:6px;">Farba</div>
+    <div class="color-palette-controls">
+      <button class="palette-ctrl-btn" id="new-add-btn" onclick="toggleColorAdder('new')" title="Pridať farbu">+ Pridať</button>
+      <button class="palette-ctrl-btn" id="new-edit-btn" onclick="toggleColorDeleteMode('new')" title="Mazať farby">✎ Upraviť</button>
+    </div>
+    <div class="color-adder" id="new-color-adder">
+      <div class="color-adder-preview" id="new-adder-preview" style="background:#FF3333;">
+        <input type="color" id="new-adder-input" value="#FF3333" oninput="onAdderInput('new',this.value)">
+      </div>
+      <input class="color-adder-hex" id="new-adder-hex" value="#FF3333" maxlength="7" oninput="onAdderHex('new',this.value)" placeholder="#rrggbb">
+      <button class="btn-primary" style="padding:5px 12px;font-size:11px;" onclick="addCustomColor('new')">Pridať</button>
+      <button class="palette-ctrl-btn" onclick="toggleColorAdder('new')">✕</button>
+    </div>
     <div class="color-palette" id="color-palette"></div>
     <div class="modal-btns">
       <button class="btn-ghost" onclick="closeActivityModal()">Zrušiť</button>
@@ -1319,12 +1410,14 @@ header {
 
 <script>
 // ── CONSTANTS ──
-const COLORS = [
+const DEFAULT_COLORS = [
   '#FFE5E5','#FFCCCC','#FF9999','#FF6666',
   '#FF3333','#FF0000','#CC0000','#990000',
   '#660000','#330000','#240000',
   '#FFAA44','#44BB88','#4488FF','#888899'
 ];
+let COLORS = JSON.parse(localStorage.getItem('pm_colors') || 'null') || [...DEFAULT_COLORS];
+function saveColors() { localStorage.setItem('pm_colors', JSON.stringify(COLORS)); }
 
 const DEFAULT_SETTINGS = { work:25, break:5, longBreak:15, stopkyMax:90 };
 
@@ -1354,7 +1447,7 @@ const CIRCUM = 2 * Math.PI * 80; // ~502.65
 // ── INIT ──
 function init() {
   updateSettingsUI();
-  updateRing(1);
+  updateRingTimer(1);
   renderSessionDots();
   updateTodayStats();
   updateGCalStatus();
@@ -1435,6 +1528,9 @@ function openActivityModal() {
 
 function closeActivityModal() {
   document.getElementById('activity-modal').classList.remove('open');
+  setColorDeleteMode('new', false);
+  document.getElementById('new-color-adder').classList.remove('open');
+  document.getElementById('new-add-btn').classList.remove('active');
 }
 
 function confirmAddActivity() {
@@ -1453,28 +1549,93 @@ function confirmAddActivity() {
   showToast(`"${name}" pridané ✓`, 'success');
 }
 
+let _colorDeleteMode = { new: false, edit: false };
+
+function toggleColorAdder(ctx) {
+  const adder = document.getElementById(ctx+'-color-adder');
+  const isOpen = adder.classList.toggle('open');
+  const btn = document.getElementById(ctx+'-add-btn');
+  btn.classList.toggle('active', isOpen);
+  // Zatvori delete mode ak bolo otvorene
+  if (isOpen) setColorDeleteMode(ctx, false);
+}
+
+function toggleColorDeleteMode(ctx) {
+  const newVal = !_colorDeleteMode[ctx];
+  setColorDeleteMode(ctx, newVal);
+  // Zatvori adder ak bol otvoreny
+  if (newVal) {
+    document.getElementById(ctx+'-color-adder').classList.remove('open');
+    document.getElementById(ctx+'-add-btn').classList.remove('active');
+  }
+}
+
+function setColorDeleteMode(ctx, val) {
+  _colorDeleteMode[ctx] = val;
+  const btn = document.getElementById(ctx+'-edit-btn');
+  if (btn) btn.classList.toggle('active', val);
+  if (ctx === 'new') renderColorPalette();
+  else renderEditColorPalette();
+}
+
+function onAdderInput(ctx, val) {
+  document.getElementById(ctx+'-adder-preview').style.background = val;
+  document.getElementById(ctx+'-adder-hex').value = val;
+}
+
+function onAdderHex(ctx, val) {
+  const clean = val.startsWith('#') ? val : '#'+val;
+  if (/^#[0-9a-fA-F]{6}$/.test(clean)) {
+    document.getElementById(ctx+'-adder-input').value = clean;
+    document.getElementById(ctx+'-adder-preview').style.background = clean;
+  }
+}
+
+function addCustomColor(ctx) {
+  const col = document.getElementById(ctx+'-adder-input').value;
+  if (!col || !/^#[0-9a-fA-F]{6}$/.test(col)) return;
+  if (!COLORS.includes(col)) {
+    COLORS.push(col);
+    saveColors();
+  }
+  if (ctx === 'new') { selNewColor = col; renderColorPalette(); }
+  else { selEditColor = col; renderEditColorPalette(); }
+  // Zatvori adder
+  document.getElementById(ctx+'-color-adder').classList.remove('open');
+  document.getElementById(ctx+'-add-btn').classList.remove('active');
+}
+
+function deleteColorFromPalette(col, ctx) {
+  // Nemozes vymazat farbu ak je prave selektovana — vymeni za prvu dostupnu
+  COLORS = COLORS.filter(c => c !== col);
+  if (!COLORS.length) COLORS = [...DEFAULT_COLORS];
+  saveColors();
+  if (ctx === 'new') {
+    if (selNewColor === col) selNewColor = COLORS[0];
+    renderColorPalette();
+  } else {
+    if (selEditColor === col) selEditColor = COLORS[0];
+    renderEditColorPalette();
+  }
+}
+
 function renderColorPalette() {
   const c = document.getElementById('color-palette');
   c.innerHTML = '';
+  c.className = 'color-palette' + (_colorDeleteMode.new ? ' edit-mode' : '');
   COLORS.forEach(col => {
     const sw = document.createElement('div');
-    sw.className = 'color-swatch' + (col === selNewColor ? ' selected' : '');
+    sw.className = 'color-swatch' + (col === selNewColor && !_colorDeleteMode.new ? ' selected' : '');
     sw.style.background = col;
-    sw.onclick = () => { selNewColor = col; renderColorPalette(); };
+    sw.title = col;
+    // Del overlay
+    const dx = document.createElement('span');
+    dx.className = 'del-x'; dx.textContent = '×';
+    dx.onclick = e => { e.stopPropagation(); deleteColorFromPalette(col, 'new'); };
+    sw.appendChild(dx);
+    if (!_colorDeleteMode.new) sw.onclick = () => { selNewColor = col; renderColorPalette(); };
     c.appendChild(sw);
   });
-  // + custom farba
-  const wrap = document.createElement('label');
-  wrap.title = 'Vlastná farba';
-  wrap.style.cssText = 'width:22px;height:22px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;';
-  const inp = document.createElement('input');
-  inp.type = 'color'; inp.value = selNewColor;
-  inp.style.cssText = 'opacity:0;position:absolute;width:0;height:0;';
-  inp.oninput = e => { selNewColor = e.target.value; renderColorPalette(); };
-  const icon = document.createElement('span');
-  icon.textContent = '+'; icon.style.cssText = 'font-size:13px;color:var(--text3);pointer-events:none;line-height:1;';
-  wrap.appendChild(inp); wrap.appendChild(icon);
-  c.appendChild(wrap);
 }
 
 // ── TIMER CONTROLS ──
@@ -2278,8 +2439,20 @@ init();
     <h2>Upraviť aktivitu</h2>
     <div class="card-label" style="margin-bottom:6px;">Názov</div>
     <input class="modal-input" id="edit-act-name" placeholder="Názov aktivity" maxlength="30" style="margin-bottom:14px;">
-    <div class="card-label" style="margin-bottom:8px;">Farba</div>
-    <div id="edit-color-palette" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;"></div>
+    <div class="card-label" style="margin-bottom:6px;">Farba</div>
+    <div class="color-palette-controls">
+      <button class="palette-ctrl-btn" id="edit-add-btn" onclick="toggleColorAdder('edit')" title="Pridať farbu">+ Pridať</button>
+      <button class="palette-ctrl-btn" id="edit-edit-btn" onclick="toggleColorDeleteMode('edit')" title="Mazať farby">✎ Upraviť</button>
+    </div>
+    <div class="color-adder" id="edit-color-adder">
+      <div class="color-adder-preview" id="edit-adder-preview" style="background:#FF3333;">
+        <input type="color" id="edit-adder-input" value="#FF3333" oninput="onAdderInput('edit',this.value)">
+      </div>
+      <input class="color-adder-hex" id="edit-adder-hex" value="#FF3333" maxlength="7" oninput="onAdderHex('edit',this.value)" placeholder="#rrggbb">
+      <button class="btn-primary" style="padding:5px 12px;font-size:11px;" onclick="addCustomColor('edit')">Pridať</button>
+      <button class="palette-ctrl-btn" onclick="toggleColorAdder('edit')">✕</button>
+    </div>
+    <div id="edit-color-palette" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px;" class="color-palette"></div>
     <div class="modal-btns" style="justify-content:space-between;">
       <button class="btn-ghost" style="color:#ff4444;" onclick="deleteActivity()">Vymazať</button>
       <div style="display:flex;gap:8px;">
@@ -2312,10 +2485,12 @@ init();
   async function fbLogin() {
     try {
       const result = await window._fbFns.signInWithPopup(window._fbAuth, window._fbProvider);
-      // Zachyti Google OAuth access token pre Calendar API
-      if (result && result._tokenResponse && result._tokenResponse.oauthAccessToken) {
-        window._gcalToken = result._tokenResponse.oauthAccessToken;
+      // Zachyti Google OAuth access token pre Calendar API - oficialny sposob
+      const credential = window._fbFns.credentialFromResult(result);
+      if (credential && credential.accessToken) {
+        window._gcalToken = credential.accessToken;
         localStorage.setItem('pm_gcal_token', window._gcalToken);
+        updateGCalStatus();
       }
     } catch(e) {
       showToast('Prihlásenie zlyhalo: ' + e.message, 'error');
@@ -2487,29 +2662,26 @@ init();
   function closeEditActivityModal() {
     document.getElementById('edit-activity-modal').classList.remove('open');
     editingActivityName = null;
+    setColorDeleteMode('edit', false);
+    document.getElementById('edit-color-adder').classList.remove('open');
+    document.getElementById('edit-add-btn').classList.remove('active');
   }
 
   function renderEditColorPalette() {
     const el = document.getElementById('edit-color-palette');
     el.innerHTML = '';
+    el.className = 'color-palette' + (_colorDeleteMode.edit ? ' edit-mode' : '');
     COLORS.forEach(col => {
-      const btn = document.createElement('button');
-      btn.style.cssText = `width:26px;height:26px;border-radius:50%;background:${col};border:${col===selEditColor?'2px solid white':'2px solid transparent'};cursor:pointer;`;
-      btn.onclick = () => { selEditColor = col; renderEditColorPalette(); };
-      el.appendChild(btn);
+      const sw = document.createElement('div');
+      sw.className = 'color-swatch' + (col === selEditColor && !_colorDeleteMode.edit ? ' selected' : '');
+      sw.style.cssText = `background:${col};width:26px;height:26px;border-radius:50%;border:${col===selEditColor&&!_colorDeleteMode.edit?'2px solid white':'2px solid transparent'};cursor:pointer;position:relative;flex-shrink:0;transition:transform 0.12s;`;
+      const dx = document.createElement('span');
+      dx.className = 'del-x'; dx.textContent = '×';
+      dx.onclick = e => { e.stopPropagation(); deleteColorFromPalette(col, 'edit'); };
+      sw.appendChild(dx);
+      if (!_colorDeleteMode.edit) sw.onclick = () => { selEditColor = col; renderEditColorPalette(); };
+      el.appendChild(sw);
     });
-    // + custom farba (mimo forEach)
-    const wrap2 = document.createElement('label');
-    wrap2.title = 'Vlastná farba';
-    wrap2.style.cssText = 'width:26px;height:26px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;';
-    const inp2 = document.createElement('input');
-    inp2.type = 'color'; inp2.value = selEditColor;
-    inp2.style.cssText = 'opacity:0;position:absolute;width:0;height:0;';
-    inp2.oninput = e => { selEditColor = e.target.value; renderEditColorPalette(); };
-    const icon2 = document.createElement('span');
-    icon2.textContent = '+'; icon2.style.cssText = 'font-size:14px;color:var(--text3);pointer-events:none;line-height:1;';
-    wrap2.appendChild(inp2); wrap2.appendChild(icon2);
-    el.appendChild(wrap2);
   }
 
   function confirmEditActivity() {
