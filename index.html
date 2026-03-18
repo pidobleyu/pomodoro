@@ -38,9 +38,6 @@
   --text: #111113;
   --text2: #555566;
   --text3: #9999aa;
-  --accent: #e8533a;
-  --accent-dim: rgba(232,83,58,0.12);
-  --accent-glow: rgba(232,83,58,0.25);
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -490,7 +487,7 @@ header {
   border: 1px solid var(--border2);
   border-radius: 5px;
   color: var(--text);
-  padding: 2px 4px;
+  padding: 2px 0;
   outline: none;
   -moz-appearance: textfield;
 }
@@ -965,8 +962,9 @@ header {
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js';
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
       from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js';
-    import { getFirestore, collection, doc, setDoc, getDocs, query, orderBy, writeBatch }
+    import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, query, orderBy, writeBatch }
       from 'https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js';
+
     const firebaseConfig = {
       apiKey: "AIzaSyCjDFbT1Oi3lys4o5Nnd35g_H5PJHsb_0A",
       authDomain: "focusino-bab1d.firebaseapp.com",
@@ -975,13 +973,23 @@ header {
       messagingSenderId: "389449256457",
       appId: "1:389449256457:web:dc08278e1e3f2f041cb2d8"
     };
-    const app = initializeApp(firebaseConfig);
+
+    const app  = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    const db = getFirestore(app);
-    window._fbAuth = auth; window._fbDb = db;
+    const db   = getFirestore(app);
+
+    window._fbAuth     = auth;
+    window._fbDb       = db;
     window._fbProvider = new GoogleAuthProvider();
-    window._fbFns = { signInWithPopup, signOut, onAuthStateChanged, collection, doc, setDoc, getDocs, query, orderBy, writeBatch };
-    onAuthStateChanged(auth, user => { if (typeof window.onFirebaseAuthReady === 'function') window.onFirebaseAuthReady(user); });
+    window._fbFns      = { signInWithPopup, signOut, onAuthStateChanged,
+                           collection, doc, setDoc, getDocs, deleteDoc,
+                           query, orderBy, writeBatch };
+
+    onAuthStateChanged(auth, user => {
+      if (typeof window.onFirebaseAuthReady === 'function') {
+        window.onFirebaseAuthReady(user);
+      }
+    });
   </script>
 </head>
 <body>
@@ -1010,7 +1018,7 @@ header {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Google Kalendár
       </button>
-      <button id="theme-toggle" onclick="toggleTheme()" title="Prepnúť svetlý/tmavý režim" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:6px;font-size:16px;margin-left:2px;">🌙</button>
+      <button id="theme-toggle" onclick="toggleTheme()" title="Svetlý/tmavý režim" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:6px;font-size:16px;">🌙</button>
     </div>
   </header>
 
@@ -1093,7 +1101,7 @@ header {
             <span class="setting-name">Pauza (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('break',-1)">−</div>
-              <span class="num-val" id="break-val">5</span>
+              <input class="num-input" id="break-val" type="number" min="1" max="30" value="5" onchange="setSetting('break',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
               <div class="num-btn" onclick="adjustSetting('break',1)">+</div>
             </div>
           </div>
@@ -1395,12 +1403,12 @@ function renderActivities() {
     btn.style.setProperty('--chip-color', act.color);
     const r=parseInt(act.color.slice(1,3),16), g=parseInt(act.color.slice(3,5),16), b=parseInt(act.color.slice(5,7),16);
     btn.style.setProperty('--chip-bg', `rgba(${r},${g},${b},0.14)`);
-    const safeName = act.name.replace(/\/g,'\\').replace(/'/g,"\'");
-    btn.innerHTML = `<span class="chip-dot"></span>${escHtml(act.name)}<span class="chip-edit" onclick="event.stopPropagation();openEditActivityModal('${safeName}')">✎</span>`;
+    btn.innerHTML = `<span class="chip-dot"></span>${escHtml(act.name)}<span class="chip-edit" onclick="event.stopPropagation();openEditActivityModal('${escHtml(act.name).replace(/'/g,"\\'")}')">✎</span>`;
     btn.onclick = () => selectActivity(act);
     el.appendChild(btn);
   });
 }
+
 
 function selectActivity(act) {
   selActivity = act;
@@ -1450,21 +1458,18 @@ function renderColorPalette() {
     sw.onclick = () => { selNewColor = col; renderColorPalette(); };
     el.appendChild(sw);
   });
-  // Custom color picker
-  const customWrap = document.createElement('label');
-  customWrap.title = 'Vlastná farba';
-  customWrap.style.cssText = 'width:26px;height:26px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;';
+  // + custom farba
+  const wrap = document.createElement('label');
+  wrap.title = 'Vlastná farba';
+  wrap.style.cssText = 'width:22px;height:22px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;';
   const inp = document.createElement('input');
-  inp.type = 'color';
-  inp.value = selNewColor;
-  inp.style.cssText = 'opacity:0;position:absolute;width:1px;height:1px;';
+  inp.type = 'color'; inp.value = selNewColor;
+  inp.style.cssText = 'opacity:0;position:absolute;width:0;height:0;';
   inp.oninput = e => { selNewColor = e.target.value; renderColorPalette(); };
   const icon = document.createElement('span');
-  icon.textContent = '+';
-  icon.style.cssText = 'font-size:14px;color:var(--text3);pointer-events:none;';
-  customWrap.appendChild(inp);
-  customWrap.appendChild(icon);
-  el.appendChild(customWrap);
+  icon.textContent = '+'; icon.style.cssText = 'font-size:13px;color:var(--text3);pointer-events:none;line-height:1;';
+  wrap.appendChild(inp); wrap.appendChild(icon);
+  el.appendChild(wrap);
 }
 
 // ── TIMER CONTROLS ──
@@ -1803,11 +1808,15 @@ function setSetting(key, val) {
   const mn = {work:5, break:1, longBreak:5, stopkyMax:5};
   const mx = {work:90, break:30, longBreak:60, stopkyMax:180};
   const n = parseInt(val);
-  if (isNaN(n)) return;
+  if (isNaN(n)) { updateSettingsUI(); return; }
   settings[key] = Math.max(mn[key], Math.min(mx[key], n));
   localStorage.setItem('pm_settings', JSON.stringify(settings));
   updateSettingsUI();
-  if (!isRunning && appMode === 'timer') { secondsLeft = settings[mode] * 60; updateTimerDisplay(); updateProgress(); }
+  if (!isRunning && appMode === 'timer') {
+    secondsLeft = settings[mode] * 60;
+    updateTimerDisplay();
+    updateProgress();
+  }
 }
 function updateSettingsUI() {
   document.getElementById('work-val').value = settings.work;
@@ -1894,6 +1903,19 @@ function getSessionDateStr(s) {
   if(s.date) return s.date;
   const d = parseSessionDate(s);
   return toDateStr(d);
+}
+
+function normalizeDateStr(s) {
+  if (s.date) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return s.date;
+    const p = new Date(s.date);
+    if (!isNaN(p)) return p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0');
+  }
+  if (s.start) {
+    const p = new Date(s.start);
+    if (!isNaN(p)) return p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0');
+  }
+  return '';
 }
 
 function getFiltered() {
@@ -2175,207 +2197,270 @@ init();
   </div>
 </div>
 
-<script>
-// ══════════════════════════════════════════
-// FIREBASE + EDIT ACTIVITY + THEME MODULE
-// ══════════════════════════════════════════
-let currentUser = null;
-let editingActivityName = null;
-let selEditColor = '#FF3333';
 
-// ── Firestore paths ──
-function userSessionsCol() {
-  if (!currentUser || !window._fbDb) return null;
-  return window._fbFns.collection(window._fbDb, 'users', currentUser.uid, 'sessions');
-}
-function userActivitiesDoc() {
-  if (!currentUser || !window._fbDb) return null;
-  return window._fbFns.doc(window._fbDb, 'users', currentUser.uid, 'data', 'activities');
-}
+  <!-- ═══ FIREBASE LOGIC MODULE ═══ -->
+  <script>
+  // ── Globálny stav ──
+  let currentUser = null;
+  let editingActivityName = null;
+  let selEditColor = '#FF3333';
 
-// ── AUTH ──
-async function fbLogin() {
-  try { await window._fbFns.signInWithPopup(window._fbAuth, window._fbProvider); }
-  catch(e) { showToast('Prihlásenie zlyhalo: ' + e.message, 'error'); }
-}
-async function fbLogout() {
-  await window._fbFns.signOut(window._fbAuth);
-  currentUser = null; sessions = [];
-  renderHistory(); updateTodayStats();
-  document.getElementById('btn-login').style.display = '';
-  document.getElementById('user-info').style.display = 'none';
-  showToast('Odhlásený', '');
-}
-window.onFirebaseAuthReady = async function(user) {
-  currentUser = user;
-  if (user) {
-    document.getElementById('btn-login').style.display = 'none';
-    document.getElementById('user-info').style.display = 'flex';
-    document.getElementById('user-avatar').src = user.photoURL || '';
-    document.getElementById('user-name').textContent = user.displayName || user.email;
-    await fbLoadSessions();
-    await fbLoadActivities();
-  } else {
-    sessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
-    activities = JSON.parse(localStorage.getItem('pm_activities') || '[]');
-    renderActivities(); renderHistory(); updateTodayStats();
+  // ── Pomocné funkcie pre Firestore paths ──
+  function userSessionsPath() {
+    if (!currentUser || !window._fbDb) return null;
+    return window._fbFns.collection(window._fbDb, 'users', currentUser.uid, 'sessions');
   }
-};
-
-// ── SESSIONS ──
-async function fbLoadSessions() {
-  const col = userSessionsCol(); if (!col) return;
-  try {
-    const q = window._fbFns.query(col, window._fbFns.orderBy('start', 'desc'));
-    const snap = await window._fbFns.getDocs(q);
-    const fsSessions = snap.docs.map(d => d.data());
-    const localSessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
-    const fsIds = new Set(fsSessions.map(s => String(s.id)));
-    const toUpload = localSessions.filter(s => !fsIds.has(String(s.id)));
-    for (const s of toUpload) await fbSaveSession(s);
-    const allIds = new Set(fsSessions.map(s => String(s.id)));
-    const merged = [...fsSessions, ...toUpload.filter(s => !allIds.has(String(s.id)))];
-    merged.sort((a, b) => new Date(b.start) - new Date(a.start));
-    sessions = merged;
-    localStorage.setItem('pm_sessions', JSON.stringify(sessions));
-    renderHistory(); updateTodayStats();
-    if (toUpload.length > 0) showToast('Nahraných ' + toUpload.length + ' sessions ✓', 'success');
-    else showToast('Prihlásený — dáta synchronizované ✓', 'success');
-  } catch(e) {
-    console.error('fbLoadSessions:', e);
-    sessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
-    renderHistory();
+  function userActivitiesDoc() {
+    if (!currentUser || !window._fbDb) return null;
+    return window._fbFns.doc(window._fbDb, 'users', currentUser.uid, 'data', 'activities');
   }
-}
-async function fbSaveSession(session) {
-  const col = userSessionsCol(); if (!col) return;
-  try {
-    const ref = window._fbFns.doc(window._fbDb, 'users', currentUser.uid, 'sessions', String(session.id));
-    await window._fbFns.setDoc(ref, session);
-  } catch(e) { console.error('fbSaveSession:', e); }
-}
-async function fbClearAllSessions() {
-  const col = userSessionsCol(); if (!col) return;
-  try {
-    const snap = await window._fbFns.getDocs(col);
-    const batch = window._fbFns.writeBatch(window._fbDb);
-    snap.docs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
-  } catch(e) { console.error('fbClearAllSessions:', e); }
-}
 
-// ── AKTIVITY ──
-async function fbLoadActivities() {
-  if (!currentUser || !window._fbDb) return;
-  try {
-    const snap = await window._fbFns.getDocs(
-      window._fbFns.collection(window._fbDb, 'users', currentUser.uid, 'data')
-    );
-    const actDoc = snap.docs.find(d => d.id === 'activities');
-    if (actDoc && actDoc.data().list && actDoc.data().list.length > 0) {
-      const fsActs = actDoc.data().list;
-      const localActs = JSON.parse(localStorage.getItem('pm_activities') || '[]');
-      const fsNames = new Set(fsActs.map(a => a.name));
-      activities = [...fsActs, ...localActs.filter(a => !fsNames.has(a.name))];
-    } else {
-      activities = JSON.parse(localStorage.getItem('pm_activities') || '[]');
+  // ── LOGIN ──
+  async function fbLogin() {
+    try {
+      await window._fbFns.signInWithPopup(window._fbAuth, window._fbProvider);
+    } catch(e) {
+      showToast('Prihlásenie zlyhalo: ' + e.message, 'error');
     }
-    // Recovery z history
-    const actNames = new Set(activities.map(a => a.name));
-    sessions.forEach(s => {
-      if (s.activity && s.activity !== 'Bez názvu' && !actNames.has(s.activity)) {
-        activities.push({ name: s.activity, color: s.actColor || '#FF3333' });
-        actNames.add(s.activity);
-      }
-    });
-    await fbSaveActivities();
-    localStorage.setItem('pm_activities', JSON.stringify(activities));
-    renderActivities();
-  } catch(e) {
-    console.error('fbLoadActivities:', e);
-    activities = JSON.parse(localStorage.getItem('pm_activities') || '[]');
-    renderActivities();
   }
-}
-async function fbSaveActivities() {
-  if (!currentUser || !window._fbDb) return;
-  try {
-    await window._fbFns.setDoc(userActivitiesDoc(), { list: activities });
-  } catch(e) { console.error('fbSaveActivities:', e); }
-}
 
-// ── EDIT ACTIVITY ──
-function openEditActivityModal(name) {
-  const act = activities.find(a => a.name === name);
-  if (!act) return;
-  editingActivityName = name;
-  selEditColor = act.color;
-  document.getElementById('edit-act-name').value = act.name;
-  renderEditColorPalette();
-  document.getElementById('edit-activity-modal').classList.add('open');
-  setTimeout(() => document.getElementById('edit-act-name').focus(), 80);
-}
-function closeEditActivityModal() {
-  document.getElementById('edit-activity-modal').classList.remove('open');
-  editingActivityName = null;
-}
-function renderEditColorPalette() {
-  const el = document.getElementById('edit-color-palette');
-  el.innerHTML = '';
-  COLORS.forEach(col => {
-    const btn = document.createElement('button');
-    btn.style.cssText = `width:26px;height:26px;border-radius:50%;background:${col};border:2px solid ${col===selEditColor?'white':'transparent'};cursor:pointer;flex-shrink:0;`;
-    btn.onclick = () => { selEditColor = col; renderEditColorPalette(); };
-    el.appendChild(btn);
-  });
-  const wrap = document.createElement('label');
-  wrap.title = 'Vlastná farba';
-  wrap.style.cssText = 'width:26px;height:26px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
-  const inp = document.createElement('input');
-  inp.type = 'color'; inp.value = selEditColor;
-  inp.style.cssText = 'opacity:0;position:absolute;width:1px;height:1px;';
-  inp.oninput = e => { selEditColor = e.target.value; renderEditColorPalette(); };
-  const icon = document.createElement('span');
-  icon.textContent = '+'; icon.style.cssText = 'font-size:14px;color:var(--text3);pointer-events:none;';
-  wrap.appendChild(inp); wrap.appendChild(icon);
-  el.appendChild(wrap);
-}
-function confirmEditActivity() {
-  const newName = document.getElementById('edit-act-name').value.trim();
-  if (!newName) { showToast('Zadaj názov', 'error'); return; }
-  const oldName = editingActivityName;
-  activities = activities.map(a => a.name === oldName ? { name: newName, color: selEditColor } : a);
-  sessions = sessions.map(s => s.activity === oldName ? { ...s, activity: newName, actColor: selEditColor } : s);
-  if (selActivity && selActivity.name === oldName) selActivity = { name: newName, color: selEditColor };
-  localStorage.setItem('pm_activities', JSON.stringify(activities));
-  localStorage.setItem('pm_sessions', JSON.stringify(sessions));
-  fbSaveActivities();
-  sessions.filter(s => s.activity === newName).forEach(s => fbSaveSession(s));
-  closeEditActivityModal();
-  renderActivities(); renderHistory();
-  showToast('Aktivita upravená ✓', 'success');
-}
-function deleteActivity() {
-  if (!confirm('Vymazať aktivitu "' + editingActivityName + '"? V histórii zostane.')) return;
-  activities = activities.filter(a => a.name !== editingActivityName);
-  if (selActivity && selActivity.name === editingActivityName) selActivity = null;
-  localStorage.setItem('pm_activities', JSON.stringify(activities));
-  fbSaveActivities();
-  closeEditActivityModal(); renderActivities();
-  showToast('Aktivita vymazaná', 'error');
-}
+  // ── LOGOUT ──
+  async function fbLogout() {
+    await window._fbFns.signOut(window._fbAuth);
+    currentUser = null;
+    sessions = [];
+    renderHistory();
+    updateTodayStats();
+    document.getElementById('btn-login').style.display = '';
+    document.getElementById('user-info').style.display = 'none';
+    showToast('Odhlásený', '');
+  }
 
-// ── THEME ──
+  // ── AUTH STATE CHANGE - automaticky po prihlaseni ──
+  window.onFirebaseAuthReady = async function(user) {
+    currentUser = user;
+    if (user) {
+      document.getElementById('btn-login').style.display = 'none';
+      document.getElementById('user-info').style.display = 'flex';
+      document.getElementById('user-avatar').src = user.photoURL || '';
+      document.getElementById('user-name').textContent = user.displayName || user.email;
+
+      // Nacitaj vsetko automaticky - najprv sessions, potom aktivity (recovery potrebuje sessions)
+      await fbLoadSessions();
+      await fbLoadActivities();
+    } else {
+      sessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
+      activities = JSON.parse(localStorage.getItem('pm_activities') || '[]');
+      renderActivities();
+      renderHistory();
+      updateTodayStats();
+    }
+  };
+
+  // ── SESSIONS: NAČÍTAJ ──
+  async function fbLoadSessions() {
+    const col = userSessionsPath();
+    if (!col) return;
+    try {
+      const q = window._fbFns.query(col, window._fbFns.orderBy('start', 'desc'));
+      const snap = await window._fbFns.getDocs(q);
+      const fsSessions = snap.docs.map(d => d.data());
+
+      // Upload lokalnych ktore chybaju vo Firestore
+      const localSessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
+      const fsIds = new Set(fsSessions.map(s => String(s.id)));
+      const toUpload = localSessions.filter(s => !fsIds.has(String(s.id)));
+      for (const s of toUpload) await fbSaveSession(s);
+
+      // Zluc
+      const allIds = new Set(fsSessions.map(s => String(s.id)));
+      const merged = [...fsSessions, ...toUpload.filter(s => !allIds.has(String(s.id)))];
+      merged.sort((a, b) => new Date(b.start) - new Date(a.start));
+
+      sessions = merged;
+      localStorage.setItem('pm_sessions', JSON.stringify(sessions));
+      renderHistory();
+      updateTodayStats();
+
+      if (toUpload.length > 0) showToast('Nahraných ' + toUpload.length + ' sessions do cloudu ✓', 'success');
+      else showToast('Prihlásený — dáta synchronizované ✓', 'success');
+    } catch(e) {
+      console.error('fbLoadSessions:', e);
+      sessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
+      renderHistory();
+    }
+  }
+
+  // ── SESSIONS: ULOŽ ──
+  async function fbSaveSession(session) {
+    const col = userSessionsPath();
+    if (!col) return;
+    try {
+      const docRef = window._fbFns.doc(window._fbDb, 'users', currentUser.uid, 'sessions', String(session.id));
+      await window._fbFns.setDoc(docRef, session);
+    } catch(e) { console.error('fbSaveSession:', e); }
+  }
+
+  // ── SESSIONS: VYMAŽ VŠETKY ──
+  async function fbClearAllSessions() {
+    const col = userSessionsPath();
+    if (!col) return;
+    try {
+      const snap = await window._fbFns.getDocs(col);
+      const batch = window._fbFns.writeBatch(window._fbDb);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    } catch(e) { console.error('fbClearAllSessions:', e); }
+  }
+
+  // ── AKTIVITY: NAČÍTAJ ──
+  async function fbLoadActivities() {
+    const docRef = userActivitiesDoc();
+    if (!docRef) return;
+    try {
+      const snap = await window._fbFns.getDocs(
+        window._fbFns.collection(window._fbDb, 'users', currentUser.uid, 'data')
+      );
+      const actDoc = snap.docs.find(d => d.id === 'activities');
+      if (actDoc && actDoc.data().list && actDoc.data().list.length > 0) {
+        const fsActs = actDoc.data().list;
+        const localActs = JSON.parse(localStorage.getItem('pm_activities') || '[]');
+        const fsNames = new Set(fsActs.map(a => a.name));
+        const toAdd = localActs.filter(a => !fsNames.has(a.name));
+        activities = [...fsActs, ...toAdd];
+      } else {
+        activities = JSON.parse(localStorage.getItem('pm_activities') || '[]');
+      }
+
+      // Recovery: obnov aktivity z history sessions ktore nie su v zozname
+      // sessions uz su nacitane z Firestore (fbLoadSessions prebehol skor)
+      const actNames = new Set(activities.map(a => a.name));
+      sessions.forEach(s => {
+        if (s.activity && s.activity !== 'Bez názvu' && !actNames.has(s.activity)) {
+          activities.push({ name: s.activity, color: s.actColor || '#FF3333' });
+          actNames.add(s.activity);
+        }
+      });
+
+      await fbSaveActivities();
+      localStorage.setItem('pm_activities', JSON.stringify(activities));
+      renderActivities();
+    } catch(e) {
+      console.error('fbLoadActivities:', e);
+      activities = JSON.parse(localStorage.getItem('pm_activities') || '[]');
+      renderActivities();
+    }
+  }
+
+  // ── AKTIVITY: ULOŽ ──
+  async function fbSaveActivities() {
+    const docRef = userActivitiesDoc();
+    if (!docRef) return;
+    try {
+      await window._fbFns.setDoc(docRef, { list: activities });
+    } catch(e) { console.error('fbSaveActivities:', e); }
+  }
+
+  // ── EDIT ACTIVITY MODAL ──
+  function openEditActivityModal(name) {
+    const act = activities.find(a => a.name === name);
+    if (!act) return;
+    editingActivityName = name;
+    selEditColor = act.color;
+    document.getElementById('edit-act-name').value = act.name;
+    renderEditColorPalette();
+    document.getElementById('edit-activity-modal').classList.add('open');
+    setTimeout(() => document.getElementById('edit-act-name').focus(), 80);
+  }
+
+  function closeEditActivityModal() {
+    document.getElementById('edit-activity-modal').classList.remove('open');
+    editingActivityName = null;
+  }
+
+  function renderEditColorPalette() {
+    const el = document.getElementById('edit-color-palette');
+    el.innerHTML = '';
+    COLORS.forEach(col => {
+      const btn = document.createElement('button');
+      btn.style.cssText = `width:26px;height:26px;border-radius:50%;background:${col};border:${col===selEditColor?'2px solid white':'2px solid transparent'};cursor:pointer;`;
+      btn.onclick = () => { selEditColor = col; renderEditColorPalette(); };
+      el.appendChild(btn);
+  const wrap2 = document.createElement('label');
+  wrap2.title = 'Vlastná farba';
+  wrap2.style.cssText = 'width:26px;height:26px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;';
+  const inp2 = document.createElement('input');
+  inp2.type = 'color'; inp2.value = selEditColor;
+  inp2.style.cssText = 'opacity:0;position:absolute;width:0;height:0;';
+  inp2.oninput = e => { selEditColor = e.target.value; renderEditColorPalette(); };
+  const icon2 = document.createElement('span');
+  icon2.textContent = '+'; icon2.style.cssText = 'font-size:14px;color:var(--text3);pointer-events:none;line-height:1;';
+  wrap2.appendChild(inp2); wrap2.appendChild(icon2);
+  el.appendChild(wrap2);
+    });
+  }
+
+  function confirmEditActivity() {
+    const newName = document.getElementById('edit-act-name').value.trim();
+    if (!newName) { showToast('Zadaj názov', 'error'); return; }
+    const oldName = editingActivityName;
+    const oldColor = activities.find(a => a.name === oldName)?.color;
+
+    // Uprav v zozname aktivit
+    activities = activities.map(a =>
+      a.name === oldName ? { name: newName, color: selEditColor } : a
+    );
+
+    // Uprav v historii sessions - nazov aj farba
+    sessions = sessions.map(s => {
+      if (s.activity === oldName) {
+        return { ...s, activity: newName, actColor: selEditColor };
+      }
+      return s;
+    });
+
+    // Ak bola vybrata, updatuj selActivity
+    if (selActivity && selActivity.name === oldName) {
+      selActivity = { name: newName, color: selEditColor };
+    }
+
+    // Uloz
+    localStorage.setItem('pm_activities', JSON.stringify(activities));
+    localStorage.setItem('pm_sessions', JSON.stringify(sessions));
+    fbSaveActivities();
+    // Updatuj vsetky zmenene sessions vo Firestore
+    sessions.filter(s => s.activity === newName && s.actColor === selEditColor).forEach(s => fbSaveSession(s));
+
+    closeEditActivityModal();
+    renderActivities();
+    renderHistory();
+    showToast('Aktivita upravená ✓', 'success');
+  }
+
+  function deleteActivity() {
+    if (!confirm('Vymazať aktivitu "' + editingActivityName + '"? V histórii zostane zachovaná.')) return;
+    const name = editingActivityName;
+    activities = activities.filter(a => a.name !== name);
+    if (selActivity && selActivity.name === name) selActivity = null;
+
+    localStorage.setItem('pm_activities', JSON.stringify(activities));
+    fbSaveActivities();
+    closeEditActivityModal();
+    renderActivities();
+    showToast('Aktivita vymazaná', 'error');
+    // sessions v historii zostanu - iba z listu zmizi
+  }
+  
 function toggleTheme() {
   const isLight = document.documentElement.getAttribute('data-theme') === 'light';
   document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
   document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
   localStorage.setItem('pm_theme', isLight ? 'dark' : 'light');
 }
-// Nacitaj ulozenu temu
+// Obnov temu pri nacitani
 (function() {
-  const saved = localStorage.getItem('pm_theme') || 'dark';
-  if (saved === 'light') {
+  const t = localStorage.getItem('pm_theme');
+  if (t === 'light') {
     document.documentElement.setAttribute('data-theme', 'light');
     document.addEventListener('DOMContentLoaded', () => {
       const btn = document.getElementById('theme-toggle');
@@ -2383,20 +2468,6 @@ function toggleTheme() {
     });
   }
 })();
-
-// ── normalizeDateStr a getFiltered (timezone fix) ──
-function normalizeDateStr(s) {
-  if (s.date) {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return s.date;
-    const p = new Date(s.date);
-    if (!isNaN(p)) return p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0');
-  }
-  if (s.start) {
-    const p = new Date(s.start);
-    if (!isNaN(p)) return p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0');
-  }
-  return '';
-}
 </script>
 
 </body>
