@@ -365,7 +365,7 @@ header {
 .chip-edit {
   margin-left: 5px;
   font-size: 10px;
-  opacity: 0;
+  opacity: 0.4;
   transition: opacity 0.15s;
   color: var(--text3);
   cursor: pointer;
@@ -2253,16 +2253,25 @@ init();
       const actDoc = snap.docs.find(d => d.id === 'activities');
       if (actDoc && actDoc.data().list && actDoc.data().list.length > 0) {
         const fsActs = actDoc.data().list;
-        // Zluc s lokalnymi
         const localActs = JSON.parse(localStorage.getItem('pm_activities') || '[]');
         const fsNames = new Set(fsActs.map(a => a.name));
         const toAdd = localActs.filter(a => !fsNames.has(a.name));
         activities = [...fsActs, ...toAdd];
       } else {
-        // Prvé prihlásenie - uploadni lokálne aktivity
         activities = JSON.parse(localStorage.getItem('pm_activities') || '[]');
-        await fbSaveActivities();
       }
+
+      // Recovery: obnov aktivity z history sessions ktore nie su v zozname
+      const allSessions = JSON.parse(localStorage.getItem('pm_sessions') || '[]');
+      const actNames = new Set(activities.map(a => a.name));
+      allSessions.forEach(s => {
+        if (s.activity && s.activity !== 'Bez názvu' && !actNames.has(s.activity)) {
+          activities.push({ name: s.activity, color: s.actColor || '#FF3333' });
+          actNames.add(s.activity);
+        }
+      });
+
+      await fbSaveActivities();
       localStorage.setItem('pm_activities', JSON.stringify(activities));
       renderActivities();
     } catch(e) {
