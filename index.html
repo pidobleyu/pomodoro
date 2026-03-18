@@ -976,11 +976,12 @@ header {
   display:none;
   align-items:center;
   gap:8px;
-  margin-bottom:14px;
+  margin-top:8px;
+  margin-bottom:12px;
   padding:10px 12px;
-  background:var(--surface2);
-  border:1px solid var(--border);
-  border-radius:8px;
+  background:var(--surface3);
+  border:1px solid var(--border2);
+  border-radius:var(--r);
 }
 .color-adder.open { display:flex; }
 .color-adder-preview {
@@ -990,11 +991,13 @@ header {
   flex-shrink:0;
   cursor:pointer;
   position:relative;
+  overflow:hidden;
 }
 .color-adder-preview input[type=color] {
   opacity:0;
   position:absolute;
-  inset:0;
+  top:100%;
+  left:0;
   width:100%;
   height:100%;
   cursor:pointer;
@@ -1004,9 +1007,9 @@ header {
 .color-adder-hex {
   font-family:'Geist Mono',monospace;
   font-size:12px;
-  background:var(--surface3);
+  background:var(--surface2);
   border:1px solid var(--border);
-  border-radius:5px;
+  border-radius:6px;
   color:var(--text);
   padding:4px 8px;
   width:80px;
@@ -1097,7 +1100,7 @@ header {
           <button class="btn-ghost" onclick="fbLogout()" style="font-size:11px;color:var(--text3);">odhlásiť</button>
         </div>
       </div>
-      <span id="gcal-status">● nepripojený</span>
+      <span id="gcal-status">● offline</span>
       <button class="btn-ghost" id="sync-btn" onclick="syncBidirectional()" title="Synchronizovať so Sheets" style="display:none;padding:7px 9px;">
         <svg id="sync-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
       </button>
@@ -1787,7 +1790,8 @@ function finishSession(completed, partial = false) {
 
     sessions.unshift(session);
     localStorage.setItem('pm_sessions', JSON.stringify(sessions));
-    if (gcalConfig) addToGCal(session);
+    const hasGCalToken = window._gcalToken || localStorage.getItem('pm_gcal_token');
+    if (hasGCalToken || gcalConfig) addToGCal(session);
     if (sheetsConfig) writeSessionToSheets(session);
     fbSaveSession(session);
 
@@ -2235,12 +2239,10 @@ function updateGCalStatus() {
   const el = document.getElementById('gcal-status');
   const syncBtn = document.getElementById('sync-btn');
   const token = window._gcalToken || localStorage.getItem('pm_gcal_token');
-  if (token) {
-    el.textContent = '● gcal pripojený'; el.className = 'ok';
-  } else if (gcalConfig || sheetsConfig) {
-    el.textContent = '● pripojený'; el.className = 'ok';
+  if (token || gcalConfig || sheetsConfig) {
+    el.textContent = '● online'; el.className = 'ok';
   } else {
-    el.textContent = '● nepripojený'; el.className = '';
+    el.textContent = '● offline'; el.className = '';
   }
   if (syncBtn) syncBtn.style.display = sheetsConfig ? 'inline-flex' : 'none';
 }
