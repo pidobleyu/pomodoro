@@ -28,18 +28,6 @@
   --r: 10px;
 }
 
-[data-theme="light"] {
-  --bg: #f5f5f7;
-  --surface: #ffffff;
-  --surface2: #ebebef;
-  --surface3: #e0e0e8;
-  --border: #d0d0dc;
-  --border2: #b8b8c8;
-  --text: #111113;
-  --text2: #555566;
-  --text3: #9999aa;
-}
-
 * { margin:0; padding:0; box-sizing:border-box; }
 
 body {
@@ -478,22 +466,6 @@ header {
   min-width:28px;
   text-align:center;
 }
-.num-input {
-  font-family:'Geist Mono', monospace;
-  font-size:13px;
-  width:38px;
-  text-align:center;
-  background: transparent;
-  border: 1px solid var(--border2);
-  border-radius: 5px;
-  color: var(--text);
-  padding: 2px 0;
-  outline: none;
-  -moz-appearance: textfield;
-}
-.num-input::-webkit-outer-spin-button,
-.num-input::-webkit-inner-spin-button { -webkit-appearance: none; }
-.num-input:focus { border-color: var(--accent); }
 
 /* ── TODAY STATS ── */
 .today-card {
@@ -981,6 +953,7 @@ header {
     window._fbAuth     = auth;
     window._fbDb       = db;
     window._fbProvider = new GoogleAuthProvider();
+    window._fbProvider.addScope('https://www.googleapis.com/auth/calendar.events');
     window._fbFns      = { signInWithPopup, signOut, onAuthStateChanged,
                            collection, doc, setDoc, getDocs, deleteDoc,
                            query, orderBy, writeBatch };
@@ -990,6 +963,13 @@ header {
         window.onFirebaseAuthReady(user);
       }
     });
+  </script>
+
+  <script>
+    // ── Service Worker pre push notifikacie ──
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/pomodoro/sw.js').catch(() => {});
+    }
   </script>
 </head>
 <body>
@@ -1005,8 +985,8 @@ header {
           Prihlásiť sa
         </button>
         <div id="user-info" style="display:none;align-items:center;gap:8px;">
-          <img id="user-avatar" src="" width="24" height="24" style="border-radius:50%;">
-          <span id="user-name" style="font-size:12px;color:var(--text3);"></span>
+          <img id="user-avatar" src="" width="24" height="24" style="border-radius:50%;cursor:pointer;" onclick="openProfileModal()">
+          <span id="user-name" style="font-size:12px;color:var(--text3);cursor:pointer;" onclick="openProfileModal()"></span>
           <button class="btn-ghost" onclick="fbLogout()" style="font-size:11px;color:var(--text3);">odhlásiť</button>
         </div>
       </div>
@@ -1018,7 +998,6 @@ header {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Google Kalendár
       </button>
-      <button id="theme-toggle" onclick="toggleTheme()" title="Svetlý/tmavý režim" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:6px;font-size:16px;">🌙</button>
     </div>
   </header>
 
@@ -1093,7 +1072,7 @@ header {
             <span class="setting-name">Práca (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('work',-5)">−</div>
-              <input class="num-input" id="work-val" type="number" min="5" max="90" value="25" onchange="setSetting('work',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+              <span class="num-val" id="work-val">25</span>
               <div class="num-btn" onclick="adjustSetting('work',5)">+</div>
             </div>
           </div>
@@ -1101,7 +1080,7 @@ header {
             <span class="setting-name">Pauza (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('break',-1)">−</div>
-              <input class="num-input" id="break-val" type="number" min="1" max="30" value="5" onchange="setSetting('break',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+              <span class="num-val" id="break-val">5</span>
               <div class="num-btn" onclick="adjustSetting('break',1)">+</div>
             </div>
           </div>
@@ -1109,7 +1088,7 @@ header {
             <span class="setting-name">Dlhá pauza (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('longBreak',-5)">−</div>
-              <input class="num-input" id="longbreak-val" type="number" min="5" max="60" value="15" onchange="setSetting('longBreak',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+              <span class="num-val" id="longbreak-val">15</span>
               <div class="num-btn" onclick="adjustSetting('longBreak',5)">+</div>
             </div>
           </div>
@@ -1130,7 +1109,7 @@ header {
             <span class="setting-name">Max limit (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('stopkyMax',-5)">−</div>
-              <input class="num-input" id="stopkymax-val" type="number" min="5" max="180" value="90" onchange="setSetting('stopkyMax',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
+              <span class="num-val" id="stopkymax-val">90</span>
               <div class="num-btn" onclick="adjustSetting('stopkyMax',5)">+</div>
             </div>
           </div>
@@ -1449,27 +1428,15 @@ function confirmAddActivity() {
 }
 
 function renderColorPalette() {
-  const el = document.getElementById('color-palette');
-  el.innerHTML = '';
+  const c = document.getElementById('color-palette');
+  c.innerHTML = '';
   COLORS.forEach(col => {
     const sw = document.createElement('div');
     sw.className = 'color-swatch' + (col === selNewColor ? ' selected' : '');
     sw.style.background = col;
     sw.onclick = () => { selNewColor = col; renderColorPalette(); };
-    el.appendChild(sw);
+    c.appendChild(sw);
   });
-  // + custom farba
-  const wrap = document.createElement('label');
-  wrap.title = 'Vlastná farba';
-  wrap.style.cssText = 'width:22px;height:22px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;';
-  const inp = document.createElement('input');
-  inp.type = 'color'; inp.value = selNewColor;
-  inp.style.cssText = 'opacity:0;position:absolute;width:0;height:0;';
-  inp.oninput = e => { selNewColor = e.target.value; renderColorPalette(); };
-  const icon = document.createElement('span');
-  icon.textContent = '+'; icon.style.cssText = 'font-size:13px;color:var(--text3);pointer-events:none;line-height:1;';
-  wrap.appendChild(inp); wrap.appendChild(icon);
-  el.appendChild(wrap);
 }
 
 // ── TIMER CONTROLS ──
@@ -1784,7 +1751,7 @@ function renderSessionDots() {
 // ── TODAY STATS ──
 function updateTodayStats() {
   const today=toDateStr(new Date());
-  const ts=sessions.filter(s=>normalizeDateStr(s)===today);
+  const ts=sessions.filter(s=>s.date===today);
   const count=ts.filter(s=>s.type!=='stopky').length; // timer sessions only for "dnes"
   const minutes=ts.reduce((a,s)=>a+s.duration,0);
   let streak=0; const d=new Date();
@@ -1803,26 +1770,11 @@ function adjustSetting(key,delta) {
   updateSettingsUI();
   if(!isRunning && appMode==='timer'){secondsLeft=settings[mode]*60; updateTimerDisplay(); updateRingTimer(1);}
 }
-
-function setSetting(key, val) {
-  const mn = {work:5, break:1, longBreak:5, stopkyMax:5};
-  const mx = {work:90, break:30, longBreak:60, stopkyMax:180};
-  const n = parseInt(val);
-  if (isNaN(n)) { updateSettingsUI(); return; }
-  settings[key] = Math.max(mn[key], Math.min(mx[key], n));
-  localStorage.setItem('pm_settings', JSON.stringify(settings));
-  updateSettingsUI();
-  if (!isRunning && appMode === 'timer') {
-    secondsLeft = settings[mode] * 60;
-    updateTimerDisplay();
-    updateProgress();
-  }
-}
 function updateSettingsUI() {
-  document.getElementById('work-val').value = settings.work;
-  document.getElementById('break-val').value = settings.break;
-  document.getElementById('longbreak-val').value = settings.longBreak;
-  document.getElementById('stopkymax-val').value = settings.stopkyMax;
+  document.getElementById('work-val').textContent=settings.work;
+  document.getElementById('break-val').textContent=settings.break;
+  document.getElementById('longbreak-val').textContent=settings.longBreak;
+  document.getElementById('stopkymax-val').textContent=settings.stopkyMax;
 }
 
 // ── HISTORY ──
@@ -1857,21 +1809,24 @@ function renderHistory() {
 }
 
 function renderWeekChart() {
-  const el = document.getElementById('week-bars'); el.innerHTML = '';
-  const days = ['Ne','Po','Ut','St','Št','Pi','So'];
-  const today = new Date(); const data = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today); d.setDate(d.getDate()-i);
-    const ds = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    const mins = sessions.filter(s => normalizeDateStr(s)===ds).reduce((a,s)=>a+s.duration,0);
-    data.push({ day: days[d.getDay()], mins, isToday: i===0 });
+  const c=document.getElementById('week-bars'); c.innerHTML='';
+  const days=['Ne','Po','Ut','St','Št','Pi','So'];
+  const today=new Date(); const data=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date(today); d.setDate(d.getDate()-i);
+    const ds=toDateStr(d);
+    const mins=sessions.filter(s=>s.date===ds).reduce((a,s)=>a+s.duration,0);
+    data.push({day:days[d.getDay()],mins,isToday:i===0});
   }
-  const max = Math.max(...data.map(d=>d.mins),1);
-  data.forEach(d => {
-    const col = document.createElement('div'); col.className = 'bar-col';
-    const h = Math.max((d.mins/max)*70, d.mins>0?4:0);
-    col.innerHTML = `<div class="bar-tooltip">${d.mins} min</div><div class="bar-fill${d.isToday?' today-bar':''}" style="height:${h}px"></div><div class="bar-day">${d.day}</div>`;
-    el.appendChild(col);
+  const max=Math.max(...data.map(d=>d.mins),1);
+  data.forEach(d=>{
+    const col=document.createElement('div'); col.className='bar-col';
+    const h=Math.max((d.mins/max)*70, d.mins>0?4:0);
+    col.innerHTML=`
+      <div class="bar-tooltip">${d.mins} min</div>
+      <div class="bar-fill${d.isToday?' today-bar':''}" style="height:${h}px"></div>
+      <div class="bar-day">${d.day}</div>`;
+    c.appendChild(col);
   });
 }
 
@@ -1905,32 +1860,16 @@ function getSessionDateStr(s) {
   return toDateStr(d);
 }
 
-function normalizeDateStr(s) {
-  if (s.date) {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return s.date;
-    const p = new Date(s.date);
-    if (!isNaN(p)) return p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0');
-  }
-  if (s.start) {
-    const p = new Date(s.start);
-    if (!isNaN(p)) return p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0');
-  }
-  return '';
-}
-
 function getFiltered() {
-  function nDaysAgoStr(n) {
-    const d = new Date(); d.setDate(d.getDate()-n);
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
-  const todayStr = nDaysAgoStr(0);
-  return sessions.filter(s => {
-    const sd = normalizeDateStr(s);
-    if (!sd) return false;
-    if (analyticsPeriod==='today') return sd===todayStr;
-    if (analyticsPeriod==='7d')    return sd>=nDaysAgoStr(7);
-    if (analyticsPeriod==='30d')   return sd>=nDaysAgoStr(30);
-    if (analyticsPeriod==='year'||analyticsPeriod==='rok') return sd>=nDaysAgoStr(365);
+  const now=new Date();
+  const todayStr=toDateStr(now);
+  return sessions.filter(s=>{
+    const sd=parseSessionDate(s);
+    const sdate=getSessionDateStr(s);
+    if(analyticsPeriod==='today') return sdate===todayStr;
+    if(analyticsPeriod==='7d')   {const d=new Date(now);d.setDate(d.getDate()-7);return sd>=d;}
+    if(analyticsPeriod==='30d')  {const d=new Date(now);d.setDate(d.getDate()-30);return sd>=d;}
+    if(analyticsPeriod==='year') {const d=new Date(now);d.setFullYear(d.getFullYear()-1);return sd>=d;}
     return true;
   });
 }
@@ -2072,15 +2011,89 @@ function updateSheetsStatusBadge() {
   else{ el.textContent='● nepripojený'; el.style.color='var(--text3)'; }
 }
 
+async // ── Google Calendar colorId - mapuje hex farbu aktivity na najblizsi GCal color ──
+function hexToGCalColorId(hex) {
+  if (!hex) return '11'; // default Tomato (cervena)
+  const h = hex.replace('#','');
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  // GCal farby ako RGB
+  const gcalColors = [
+    {id:'1',  r:121,g:134,b:203}, // Lavender
+    {id:'2',  r:87, g:187,b:138}, // Sage
+    {id:'3',  r:220,g:132,b:207}, // Grape
+    {id:'4',  r:247,g:163,b:166}, // Flamingo
+    {id:'5',  r:251,g:215,b:91 }, // Banana
+    {id:'6',  r:255,g:180,b:0  }, // Tangerine
+    {id:'7',  r:68, g:182,b:230}, // Peacock
+    {id:'8',  r:100,g:100,b:100}, // Graphite
+    {id:'9',  r:72, g:88, b:163}, // Blueberry
+    {id:'10', r:14, g:107,b:73 }, // Basil
+    {id:'11', r:229,g:57, b:53 }, // Tomato
+  ];
+  let best = '11', bestDist = Infinity;
+  gcalColors.forEach(gc => {
+    const dist = Math.sqrt((r-gc.r)**2+(g-gc.g)**2+(b-gc.b)**2);
+    if (dist < bestDist) { bestDist = dist; best = gc.id; }
+  });
+  return best;
+}
+
 async function addToGCal(session) {
-  if(!gcalConfig) return;
+  const token = window._gcalToken || localStorage.getItem('pm_gcal_token');
+
+  // Fallback na stary Apps Script ak nie je OAuth token
+  if (!token) {
+    if (!gcalConfig) return;
+    try {
+      const title = `🍅 ${session.activity}${session.note?' — '+session.note:''}${session.partial?' (čiastočné)':''}`;
+      const desc  = `${session.type==='stopky'?'Stopky':'Pomodoro'} — ${session.duration} min${session.note?'\nPoznámka: '+session.note:''}`;
+      const url   = gcalConfig.scriptUrl+'?'+new URLSearchParams({action:'gcal', calendarId:gcalConfig.calId, title, description:desc, start:session.start, end:session.end});
+      await fetch(url, {method:'GET', mode:'no-cors'});
+      session.gcal = true;
+      localStorage.setItem('pm_sessions', JSON.stringify(sessions));
+    } catch(e) {}
+    return;
+  }
+
+  // OAuth - Google Calendar API priamo
   try {
-    const title=`🍅 ${session.activity}${session.note?' — '+session.note:''}${session.partial?' (čiastočné)':''}`;
-    const desc=`${session.type==='stopky'?'Stopky':'Pomodoro'} — ${session.duration} min${session.partial?` z ${session.planned} min`:''}${session.note?'\nPoznámka: '+session.note:''}`;
-    const url=gcalConfig.scriptUrl+'?'+new URLSearchParams({calendarId:gcalConfig.calId,title,description:desc,start:session.start,end:session.end});
-    await fetch(url,{method:'GET',mode:'no-cors'});
-    session.gcal=true; localStorage.setItem('pm_sessions',JSON.stringify(sessions));
-  } catch(e){}
+    const title   = `🍅 ${session.activity}${session.note?' — '+session.note:''}${session.partial?' (čiastočné)':''}`;
+    const desc    = `${session.type==='stopky'?'Stopky':'Pomodoro'} — ${session.duration} min${session.note?'\nPoznámka: '+session.note:''}`;
+    const colorId = hexToGCalColorId(session.actColor);
+
+    const event = {
+      summary:     title,
+      description: desc,
+      start:       { dateTime: session.start },
+      end:         { dateTime: session.end },
+      colorId:     colorId
+    };
+
+    const resp = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+      method:  'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type':  'application/json'
+      },
+      body: JSON.stringify(event)
+    });
+
+    if (resp.ok) {
+      session.gcal = true;
+      localStorage.setItem('pm_sessions', JSON.stringify(sessions));
+      if (currentUser) fbSaveSession(session);
+    } else if (resp.status === 401) {
+      // Token expiroval - vymaz ho, user sa musi znova prihlasit
+      window._gcalToken = null;
+      localStorage.removeItem('pm_gcal_token');
+      showToast('Kalendár: prihlás sa znova pre obnovenie prístupu', 'error');
+    } else {
+      const err = await resp.json();
+      console.error('GCal API error:', err);
+    }
+  } catch(e) {
+    console.error('addToGCal error:', e);
+  }
 }
 
 async function writeSessionToSheets(session) {
@@ -2218,7 +2231,12 @@ init();
   // ── LOGIN ──
   async function fbLogin() {
     try {
-      await window._fbFns.signInWithPopup(window._fbAuth, window._fbProvider);
+      const result = await window._fbFns.signInWithPopup(window._fbAuth, window._fbProvider);
+      // Zachyti Google OAuth access token pre Calendar API
+      if (result && result._tokenResponse && result._tokenResponse.oauthAccessToken) {
+        window._gcalToken = result._tokenResponse.oauthAccessToken;
+        localStorage.setItem('pm_gcal_token', window._gcalToken);
+      }
     } catch(e) {
       showToast('Prihlásenie zlyhalo: ' + e.message, 'error');
     }
@@ -2244,6 +2262,18 @@ init();
       document.getElementById('user-info').style.display = 'flex';
       document.getElementById('user-avatar').src = user.photoURL || '';
       document.getElementById('user-name').textContent = user.displayName || user.email;
+
+      // Poziadaj o povolenie notifikacii
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+
+      // Obnov gcal token zo localStorage ak existuje
+      const savedToken = localStorage.getItem('pm_gcal_token');
+      if (savedToken) window._gcalToken = savedToken;
+
+      // Aktualizuj gcal tlacidlo
+      updateGCalBtn();
 
       // Nacitaj vsetko automaticky - najprv sessions, potom aktivity (recovery potrebuje sessions)
       await fbLoadSessions();
@@ -2386,17 +2416,6 @@ init();
       btn.style.cssText = `width:26px;height:26px;border-radius:50%;background:${col};border:${col===selEditColor?'2px solid white':'2px solid transparent'};cursor:pointer;`;
       btn.onclick = () => { selEditColor = col; renderEditColorPalette(); };
       el.appendChild(btn);
-  const wrap2 = document.createElement('label');
-  wrap2.title = 'Vlastná farba';
-  wrap2.style.cssText = 'width:26px;height:26px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;';
-  const inp2 = document.createElement('input');
-  inp2.type = 'color'; inp2.value = selEditColor;
-  inp2.style.cssText = 'opacity:0;position:absolute;width:0;height:0;';
-  inp2.oninput = e => { selEditColor = e.target.value; renderEditColorPalette(); };
-  const icon2 = document.createElement('span');
-  icon2.textContent = '+'; icon2.style.cssText = 'font-size:14px;color:var(--text3);pointer-events:none;line-height:1;';
-  wrap2.appendChild(inp2); wrap2.appendChild(icon2);
-  el.appendChild(wrap2);
     });
   }
 
@@ -2451,24 +2470,103 @@ init();
     // sessions v historii zostanu - iba z listu zmizi
   }
   
-function toggleTheme() {
-  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-  document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
-  document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
-  localStorage.setItem('pm_theme', isLight ? 'dark' : 'light');
-}
-// Obnov temu pri nacitani
-(function() {
-  const t = localStorage.getItem('pm_theme');
-  if (t === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-    document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.getElementById('theme-toggle');
-      if (btn) btn.textContent = '☀️';
-    });
+// ── GCal button stav ──
+function updateGCalBtn() {
+  const btn = document.getElementById('gcal-btn');
+  if (!btn) return;
+  const token = window._gcalToken || localStorage.getItem('pm_gcal_token');
+  if (token) {
+    btn.style.color = 'var(--green)';
+    btn.title = 'Kalendár pripojený (OAuth)';
+  } else {
+    btn.style.color = '';
+    btn.title = 'Nastaviť Google Kalendár';
   }
-})();
+}
+
+// ── Inicializacia gcal tokenu ──
+window._gcalToken = localStorage.getItem('pm_gcal_token') || null;
+
+// ── PROFIL MODAL ──
+function openProfileModal() {
+  if (!currentUser) return;
+  document.getElementById('profile-avatar').src = currentUser.photoURL || '';
+  document.getElementById('profile-name').textContent = currentUser.displayName || '';
+  document.getElementById('profile-email').textContent = currentUser.email || '';
+
+  // Statistiky
+  const totalSessions = sessions.length;
+  const totalMins = sessions.reduce((a,s) => a + (s.duration||0), 0);
+  const totalHours = Math.round(totalMins / 60 * 10) / 10;
+  document.getElementById('profile-total-sessions').textContent = totalSessions;
+  document.getElementById('profile-total-mins').textContent = totalHours;
+
+  // Seria
+  let streak = 0;
+  const today = new Date();
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today); d.setDate(d.getDate()-i);
+    const ds = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if (sessions.some(s => normalizeDateStr(s) === ds)) streak++;
+    else if (i > 0) break;
+  }
+  document.getElementById('profile-streak').textContent = streak;
+
+  // GCal status
+  const token = window._gcalToken || localStorage.getItem('pm_gcal_token');
+  const gcalEl = document.getElementById('profile-gcal-status');
+  if (token) {
+    gcalEl.innerHTML = '<span style="color:var(--green);">● Pripojený cez Google OAuth</span>';
+  } else if (gcalConfig) {
+    gcalEl.innerHTML = '<span style="color:var(--amber);">● Pripojený cez Apps Script</span>';
+  } else {
+    gcalEl.innerHTML = '<span style="color:var(--text3);">○ Nepripojený — klikni na ikonu kalendára</span>';
+  }
+
+  document.getElementById('profile-modal').classList.add('open');
+}
+
+function closeProfileModal() {
+  document.getElementById('profile-modal').classList.remove('open');
+}
 </script>
+
+
+<!-- ═══ PROFIL MODAL ═══ -->
+<div class="modal-overlay" id="profile-modal">
+  <div class="modal" style="max-width:380px;">
+    <h2>Profil</h2>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <img id="profile-avatar" src="" width="56" height="56" style="border-radius:50%;border:2px solid var(--border2);">
+      <div>
+        <div id="profile-name" style="font-size:15px;font-weight:600;color:var(--text);"></div>
+        <div id="profile-email" style="font-size:12px;color:var(--text3);margin-top:2px;"></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div style="background:var(--surface2);border-radius:var(--r);padding:12px;text-align:center;">
+        <div id="profile-total-sessions" style="font-size:22px;font-weight:700;font-family:'Geist Mono',monospace;color:var(--accent);">0</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:0.05em;">SESSIONS</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--r);padding:12px;text-align:center;">
+        <div id="profile-total-mins" style="font-size:22px;font-weight:700;font-family:'Geist Mono',monospace;color:var(--accent);">0</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:0.05em;">HODÍN</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--r);padding:12px;text-align:center;">
+        <div id="profile-streak" style="font-size:22px;font-weight:700;font-family:'Geist Mono',monospace;color:var(--green);">0</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px;letter-spacing:0.05em;">SÉRIA</div>
+      </div>
+    </div>
+    <div style="background:var(--surface2);border-radius:var(--r);padding:12px;margin-bottom:20px;">
+      <div style="font-size:11px;color:var(--text3);letter-spacing:0.05em;margin-bottom:8px;">KALENDÁR</div>
+      <div id="profile-gcal-status" style="font-size:13px;color:var(--text2);"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-ghost" style="color:#ff4444;" onclick="fbLogout();closeProfileModal()">Odhlásiť sa</button>
+      <button class="btn-primary" onclick="closeProfileModal()">Zatvoriť</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
