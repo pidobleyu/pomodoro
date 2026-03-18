@@ -466,6 +466,26 @@ header {
   min-width:28px;
   text-align:center;
 }
+.num-val {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.num-val:hover { background: var(--surface3); }
+.num-val-input {
+  width: 42px;
+  text-align: center;
+  background: var(--surface3);
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: 'Geist Mono', monospace;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 2px 0;
+  outline: none;
+}
+
 
 /* ── TODAY STATS ── */
 .today-card {
@@ -1064,7 +1084,7 @@ header {
             <span class="setting-name">Práca (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('work',-5)">−</div>
-              <span class="num-val" id="work-val">25</span>
+              <span class="num-val" id="work-val" onclick="startInlineEdit('work')" title="Klikni pre úpravu">25</span>
               <div class="num-btn" onclick="adjustSetting('work',5)">+</div>
             </div>
           </div>
@@ -1072,7 +1092,7 @@ header {
             <span class="setting-name">Pauza (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('break',-1)">−</div>
-              <span class="num-val" id="break-val">5</span>
+              <span class="num-val" id="break-val" onclick="startInlineEdit('break')" title="Klikni pre úpravu">5</span>
               <div class="num-btn" onclick="adjustSetting('break',1)">+</div>
             </div>
           </div>
@@ -1399,7 +1419,42 @@ function openActivityModal() {
   setTimeout(() => document.getElementById('new-act-name').focus(), 80);
 }
 
-function closeActivityModal() {
+
+  function startInlineEdit(key) {
+    const idMap = {work:'work-val', break:'break-val', longBreak:'longbreak-val', stopkyMax:'stopkymax-val'};
+    const span = document.getElementById(idMap[key] || key + '-val');
+    const current = settings[key];
+    const mn = {work:1, break:1, longBreak:1, stopkyMax:1};
+    const mx = {work:90, break:30, longBreak:60, stopkyMax:180};
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.className = 'num-val-input';
+    input.value = current;
+    input.min = mn[key];
+    input.max = mx[key];
+
+    span.replaceWith(input);
+    input.focus();
+    input.select();
+
+    function commit() {
+      let val = parseInt(input.value) || current;
+      val = Math.max(mn[key], Math.min(mx[key], val));
+      settings[key] = val;
+      localStorage.setItem('pm_settings', JSON.stringify(settings));
+      updateSettings();
+      // input sa nahradi spat spanom cez updateSettings
+    }
+
+    input.addEventListener('blur', commit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { input.blur(); }
+      if (e.key === 'Escape') { input.replaceWith(span); }
+    });
+  }
+
+  function closeActivityModal() {
   document.getElementById('activity-modal').classList.remove('open');
 }
 
@@ -1763,10 +1818,25 @@ function adjustSetting(key,delta) {
   if(!isRunning && appMode==='timer'){secondsLeft=settings[mode]*60; updateTimerDisplay(); updateRingTimer(1);}
 }
 function updateSettingsUI() {
-  document.getElementById('work-val').textContent=settings.work;
-  document.getElementById('break-val').textContent=settings.break;
-  document.getElementById('longbreak-val').textContent=settings.longBreak;
-  document.getElementById('stopkymax-val').textContent=settings.stopkyMax;
+  function setVal(id, key, val) {
+    let el = document.getElementById(id);
+    // Ak je to input (prave editovany), nahrad spanom
+    if (el && el.tagName === 'INPUT') {
+      const span = document.createElement('span');
+      span.className = 'num-val';
+      span.id = id;
+      span.title = 'Klikni pre úpravu';
+      span.onclick = () => startInlineEdit(key);
+      span.textContent = val;
+      el.replaceWith(span);
+    } else if (el) {
+      el.textContent = val;
+    }
+  }
+  setVal('work-val', 'work', settings.work);
+  setVal('break-val', 'break', settings.break);
+  setVal('longbreak-val', 'longBreak', settings.longBreak);
+  setVal('stopkymax-val', 'stopkyMax', settings.stopkyMax);
 }
 
 // ── HISTORY ──
