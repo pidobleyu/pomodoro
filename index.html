@@ -28,6 +28,18 @@
   --r: 10px;
 }
 
+[data-theme="light"] {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface2: #ebebef;
+  --surface3: #e0e0e8;
+  --border: #d0d0dc;
+  --border2: #b8b8c8;
+  --text: #111113;
+  --text2: #555566;
+  --text3: #9999aa;
+}
+
 * { margin:0; padding:0; box-sizing:border-box; }
 
 body {
@@ -466,6 +478,22 @@ header {
   min-width:28px;
   text-align:center;
 }
+.num-input {
+  font-family:'Geist Mono', monospace;
+  font-size:13px;
+  width:38px;
+  text-align:center;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  color: var(--text);
+  padding: 2px 0;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.num-input::-webkit-outer-spin-button,
+.num-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.num-input:focus { border-color: var(--accent); }
 
 /* ── TODAY STATS ── */
 .today-card {
@@ -968,7 +996,7 @@ header {
   <script>
     // ── Service Worker pre push notifikacie ──
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/pomodoro/sw.js').catch(() => {});
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
   </script>
 </head>
@@ -998,6 +1026,7 @@ header {
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         Google Kalendár
       </button>
+      <button id="theme-toggle" onclick="toggleTheme()" title="Svetlý/tmavý režim" style="background:none;border:none;cursor:pointer;color:var(--text2);padding:6px;font-size:16px;">🌙</button>
     </div>
   </header>
 
@@ -1072,7 +1101,7 @@ header {
             <span class="setting-name">Práca (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('work',-5)">−</div>
-              <span class="num-val" id="work-val">25</span>
+              <input class="num-input" id="work-val" type="number" min="5" max="90" value="25" onchange="setSetting('work',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
               <div class="num-btn" onclick="adjustSetting('work',5)">+</div>
             </div>
           </div>
@@ -1080,7 +1109,7 @@ header {
             <span class="setting-name">Pauza (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('break',-1)">−</div>
-              <span class="num-val" id="break-val">5</span>
+              <input class="num-input" id="break-val" type="number" min="1" max="30" value="5" onchange="setSetting('break',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
               <div class="num-btn" onclick="adjustSetting('break',1)">+</div>
             </div>
           </div>
@@ -1088,7 +1117,7 @@ header {
             <span class="setting-name">Dlhá pauza (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('longBreak',-5)">−</div>
-              <span class="num-val" id="longbreak-val">15</span>
+              <input class="num-input" id="longbreak-val" type="number" min="5" max="60" value="15" onchange="setSetting('longBreak',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
               <div class="num-btn" onclick="adjustSetting('longBreak',5)">+</div>
             </div>
           </div>
@@ -1109,7 +1138,7 @@ header {
             <span class="setting-name">Max limit (min)</span>
             <div class="setting-ctrl">
               <div class="num-btn" onclick="adjustSetting('stopkyMax',-5)">−</div>
-              <span class="num-val" id="stopkymax-val">90</span>
+              <input class="num-input" id="stopkymax-val" type="number" min="5" max="180" value="90" onchange="setSetting('stopkyMax',this.value)" onkeydown="if(event.key==='Enter')this.blur()">
               <div class="num-btn" onclick="adjustSetting('stopkyMax',5)">+</div>
             </div>
           </div>
@@ -1437,6 +1466,18 @@ function renderColorPalette() {
     sw.onclick = () => { selNewColor = col; renderColorPalette(); };
     c.appendChild(sw);
   });
+  // + custom farba
+  const wrap = document.createElement('label');
+  wrap.title = 'Vlastná farba';
+  wrap.style.cssText = 'width:22px;height:22px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;';
+  const inp = document.createElement('input');
+  inp.type = 'color'; inp.value = selNewColor;
+  inp.style.cssText = 'opacity:0;position:absolute;width:0;height:0;';
+  inp.oninput = e => { selNewColor = e.target.value; renderColorPalette(); };
+  const icon = document.createElement('span');
+  icon.textContent = '+'; icon.style.cssText = 'font-size:13px;color:var(--text3);pointer-events:none;line-height:1;';
+  wrap.appendChild(inp); wrap.appendChild(icon);
+  c.appendChild(wrap);
 }
 
 // ── TIMER CONTROLS ──
@@ -1771,10 +1812,25 @@ function adjustSetting(key,delta) {
   if(!isRunning && appMode==='timer'){secondsLeft=settings[mode]*60; updateTimerDisplay(); updateRingTimer(1);}
 }
 function updateSettingsUI() {
-  document.getElementById('work-val').textContent=settings.work;
-  document.getElementById('break-val').textContent=settings.break;
-  document.getElementById('longbreak-val').textContent=settings.longBreak;
-  document.getElementById('stopkymax-val').textContent=settings.stopkyMax;
+  document.getElementById('work-val').value=settings.work;
+  document.getElementById('break-val').value=settings.break;
+  document.getElementById('longbreak-val').value=settings.longBreak;
+  document.getElementById('stopkymax-val').value=settings.stopkyMax;
+}
+
+function setSetting(key, val) {
+  const mn = {work:5, break:1, longBreak:5, stopkyMax:5};
+  const mx = {work:90, break:30, longBreak:60, stopkyMax:180};
+  const n = parseInt(val);
+  if (isNaN(n)) { updateSettingsUI(); return; }
+  settings[key] = Math.max(mn[key], Math.min(mx[key], n));
+  localStorage.setItem('pm_settings', JSON.stringify(settings));
+  updateSettingsUI();
+  if (!isRunning && appMode === 'timer') {
+    secondsLeft = settings[mode] * 60;
+    updateTimerDisplay();
+    updateRingTimer(1);
+  }
 }
 
 // ── HISTORY ──
@@ -1815,7 +1871,7 @@ function renderWeekChart() {
   for(let i=6;i>=0;i--){
     const d=new Date(today); d.setDate(d.getDate()-i);
     const ds=toDateStr(d);
-    const mins=sessions.filter(s=>s.date===ds).reduce((a,s)=>a+s.duration,0);
+    const mins=sessions.filter(s=>normalizeDateStr(s)===ds).reduce((a,s)=>a+s.duration,0);
     data.push({day:days[d.getDay()],mins,isToday:i===0});
   }
   const max=Math.max(...data.map(d=>d.mins),1);
@@ -1860,16 +1916,32 @@ function getSessionDateStr(s) {
   return toDateStr(d);
 }
 
+function normalizeDateStr(s) {
+  if (s.date) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s.date)) return s.date;
+    const p = new Date(s.date);
+    if (!isNaN(p)) return p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0');
+  }
+  if (s.start) {
+    const p = new Date(s.start);
+    if (!isNaN(p)) return p.getFullYear()+'-'+String(p.getMonth()+1).padStart(2,'0')+'-'+String(p.getDate()).padStart(2,'0');
+  }
+  return '';
+}
+
 function getFiltered() {
-  const now=new Date();
-  const todayStr=toDateStr(now);
-  return sessions.filter(s=>{
-    const sd=parseSessionDate(s);
-    const sdate=getSessionDateStr(s);
-    if(analyticsPeriod==='today') return sdate===todayStr;
-    if(analyticsPeriod==='7d')   {const d=new Date(now);d.setDate(d.getDate()-7);return sd>=d;}
-    if(analyticsPeriod==='30d')  {const d=new Date(now);d.setDate(d.getDate()-30);return sd>=d;}
-    if(analyticsPeriod==='year') {const d=new Date(now);d.setFullYear(d.getFullYear()-1);return sd>=d;}
+  function nDaysAgoStr(n) {
+    const d = new Date(); d.setDate(d.getDate()-n);
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  const todayStr = nDaysAgoStr(0);
+  return sessions.filter(s => {
+    const sd = normalizeDateStr(s);
+    if (!sd) return false;
+    if (analyticsPeriod==='today') return sd===todayStr;
+    if (analyticsPeriod==='7d')    return sd>=nDaysAgoStr(7);
+    if (analyticsPeriod==='30d')   return sd>=nDaysAgoStr(30);
+    if (analyticsPeriod==='year'||analyticsPeriod==='rok') return sd>=nDaysAgoStr(365);
     return true;
   });
 }
@@ -2417,6 +2489,18 @@ init();
       btn.onclick = () => { selEditColor = col; renderEditColorPalette(); };
       el.appendChild(btn);
     });
+    // + custom farba (mimo forEach)
+    const wrap2 = document.createElement('label');
+    wrap2.title = 'Vlastná farba';
+    wrap2.style.cssText = 'width:26px;height:26px;border-radius:50%;border:2px dashed var(--border2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;';
+    const inp2 = document.createElement('input');
+    inp2.type = 'color'; inp2.value = selEditColor;
+    inp2.style.cssText = 'opacity:0;position:absolute;width:0;height:0;';
+    inp2.oninput = e => { selEditColor = e.target.value; renderEditColorPalette(); };
+    const icon2 = document.createElement('span');
+    icon2.textContent = '+'; icon2.style.cssText = 'font-size:14px;color:var(--text3);pointer-events:none;line-height:1;';
+    wrap2.appendChild(inp2); wrap2.appendChild(icon2);
+    el.appendChild(wrap2);
   }
 
   function confirmEditActivity() {
@@ -2470,6 +2554,24 @@ init();
     // sessions v historii zostanu - iba z listu zmizi
   }
   
+function toggleTheme() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
+  document.getElementById('theme-toggle').textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('pm_theme', isLight ? 'dark' : 'light');
+}
+// Obnov temu pri nacitani
+(function() {
+  const t = localStorage.getItem('pm_theme');
+  if (t === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('theme-toggle');
+      if (btn) btn.textContent = '☀️';
+    });
+  }
+})();
+
 // ── GCal button stav ──
 function updateGCalBtn() {
   const btn = document.getElementById('gcal-btn');

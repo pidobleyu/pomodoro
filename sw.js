@@ -1,5 +1,4 @@
 // ── Focusino Service Worker ──
-const CACHE = 'focusino-v1';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -15,8 +14,8 @@ self.addEventListener('push', e => {
   e.waitUntil(
     self.registration.showNotification(data.title, {
       body:    data.body,
-      icon:    '/pomodoro/icon.png',
-      badge:   '/pomodoro/icon.png',
+      icon:    '/icon.png',
+      badge:   '/icon.png',
       vibrate: [200, 100, 200],
       tag:     'focusino-timer'
     })
