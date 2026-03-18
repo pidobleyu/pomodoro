@@ -1063,6 +1063,7 @@ header {
     window._fbDb       = db;
     window._fbProvider = new GoogleAuthProvider();
     window._fbProvider.addScope('https://www.googleapis.com/auth/calendar.events');
+    window._fbProvider.setCustomParameters({ prompt: 'consent', access_type: 'online' });
     window._fbFns      = { signInWithPopup, signOut, onAuthStateChanged,
                            collection, doc, setDoc, getDocs, deleteDoc,
                            query, orderBy, writeBatch,
@@ -1419,7 +1420,7 @@ const DEFAULT_COLORS = [
   '#660000','#330000','#240000',
   '#FFAA44','#44BB88','#4488FF','#888899'
 ];
-let COLORS = JSON.parse(localStorage.getItem('pm_colors') || 'null') || [...DEFAULT_COLORS];
+let COLORS = (() => { const c = JSON.parse(localStorage.getItem('pm_colors') || 'null'); return (c && c.length) ? c : [...DEFAULT_COLORS]; })();
 function saveColors() { localStorage.setItem('pm_colors', JSON.stringify(COLORS)); }
 
 const DEFAULT_SETTINGS = { work:25, break:5, longBreak:15, stopkyMax:90 };
@@ -2238,8 +2239,7 @@ function saveGCal() {
 function updateGCalStatus() {
   const el = document.getElementById('gcal-status');
   const syncBtn = document.getElementById('sync-btn');
-  const token = window._gcalToken || localStorage.getItem('pm_gcal_token');
-  if (token || gcalConfig || sheetsConfig) {
+  if (window._currentUser) {
     el.textContent = '● online'; el.className = 'ok';
   } else {
     el.textContent = '● offline'; el.className = '';
@@ -2470,6 +2470,7 @@ init();
   <script>
   // ── Globálny stav ──
   let currentUser = null;
+  window._currentUser = null;
   let editingActivityName = null;
   let selEditColor = '#FF3333';
 
@@ -2487,12 +2488,13 @@ init();
   async function fbLogin() {
     try {
       const result = await window._fbFns.signInWithPopup(window._fbAuth, window._fbProvider);
-      // Zachyti Google OAuth access token pre Calendar API - oficialny sposob
       const credential = window._fbFns.credentialFromResult(result);
       if (credential && credential.accessToken) {
         window._gcalToken = credential.accessToken;
         localStorage.setItem('pm_gcal_token', window._gcalToken);
-        updateGCalStatus();
+        showToast('Google Kalendár prepojený ✓', 'success');
+      } else {
+        showToast('Prihlásený — kalendár bez prístupu', '');
       }
     } catch(e) {
       showToast('Prihlásenie zlyhalo: ' + e.message, 'error');
@@ -2501,8 +2503,13 @@ init();
 
   // ── LOGOUT ──
   async function fbLogout() {
-    await window._fbFns.signOut(window._fbAuth);
+    // Vymaž token pred signOut
+    window._gcalToken = null;
+    localStorage.removeItem('pm_gcal_token');
+    window._currentUser = null;
     currentUser = null;
+    updateGCalStatus(); // hned aktualizuj UI
+    await window._fbFns.signOut(window._fbAuth);
     sessions = [];
     renderHistory();
     updateTodayStats();
@@ -2513,7 +2520,7 @@ init();
 
   // ── AUTH STATE CHANGE - automaticky po prihlaseni ──
   window.onFirebaseAuthReady = async function(user) {
-    currentUser = user;
+    currentUser = user; window._currentUser = user;
     if (user) {
       document.getElementById('btn-login').style.display = 'none';
       document.getElementById('user-info').style.display = 'flex';
